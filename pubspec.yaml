@@ -1,0 +1,53 @@
+name: finn_ai
+description: FINN AI — soliq va hisobot muddatlarini nazorat qiluvchi aqlli yordamchi (iOS/Android).
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Tarmoq + saqlash
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.2      # token xavfsiz saqlanadi (Keychain/Keystore)
+  shared_preferences: ^2.3.2
+
+  # Qurilma identifikatori (TZ: yangi qurilma SMS ogohlantirishi uchun)
+  device_info_plus: ^10.1.2
+  package_info_plus: ^8.0.2
+
+  # Push bildirishnoma — Firebase loyihasi ochilgach yoqiladi
+  # firebase_core: ^3.6.0
+  # firebase_messaging: ^15.1.3
+  flutter_local_notifications: ^18.0.1
+
+  # Biometrik qulf (ixtiyoriy qo'shimcha himoya)
+  local_auth: ^2.3.0
+
+  # UI
+  google_fonts: ^6.2.1
+  fl_chart: ^0.69.2
+  intl: ^0.19.0
+  url_launcher: ^6.3.1   # tarifni kengaytirish → finn.uz/subscription
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#0A2540"
+  adaptive_icon_foreground: "assets/icon_fg.png"

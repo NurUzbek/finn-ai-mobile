@@ -1,0 +1,54 @@
+# ═══════════════════════════════════════════════════════════════════
+#  FINN AI — GitHub Actions (bepul CI muqobili)
+#  Android: bepul, cheklovsizga yaqin. iOS: macOS runner (bepul limit bor).
+#
+#  QO'LLASH: "mobile/" papkani GitHub repo qiling → Actions avtomatik ishlaydi.
+#  iOS imzo (App Store) uchun sertifikatlarni GitHub Secrets'ga qo'shish kerak —
+#  oddiyroq yo'l: codemagic.yaml (App Store Connect API key bilan avtomatik).
+# ═══════════════════════════════════════════════════════════════════
+name: FINN AI build
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # qo'lda ishga tushirish tugmasi
+
+jobs:
+  android:
+    name: Android (APK + AAB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze || true
+      - run: flutter build apk --release
+      - run: flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: finn-android
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+
+  ios:
+    name: iOS (imzosiz, sinov uchun)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: cd ios && pod install
+      - run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: finn-ios-app
+          path: build/ios/iphoneos/*.app

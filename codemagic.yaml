@@ -1,0 +1,101 @@
+# ═══════════════════════════════════════════════════════════════════
+#  FINN AI — Codemagic CI (bulutli build, Mac KERAKMAS)
+#  https://codemagic.io  (bepul tier: oyiga 500 daqiqa macOS)
+#
+#  QADAMLAR:
+#   1. Ushbu "mobile/" papkani alohida Git repo qiling (GitHub/GitLab/Bitbucket).
+#   2. codemagic.io da repo'ni ulang.
+#   3. Android APK uchun — hech narsa kerak emas, "android-release" ni ishga tushiring.
+#   4. iOS .ipa uchun — Apple Developer akkaunti ($99/yil) kerak:
+#        Codemagic UI → Teams → Integrations → App Store Connect → API key ulang,
+#        keyin quyidagi "ios-release" da CM_CERTIFICATE/PROVISIONING avtomatik keladi.
+#      Test uchun (App Store'siz) — "ios-unsigned" imzosiz .app/.ipa beradi.
+# ═══════════════════════════════════════════════════════════════════
+
+workflows:
+
+  # ─────────── ANDROID (APK + Play Store AAB) ───────────
+  android-release:
+    name: FINN AI — Android
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Flutter paketlar
+        script: flutter pub get
+      - name: Tahlil (analyze)
+        script: flutter analyze || true
+      - name: APK (release)
+        script: flutter build apk --release
+      - name: AAB (Play Store uchun)
+        script: flutter build appbundle --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - nuriddin1392@gmail.com
+
+  # ─────────── iOS (App Store .ipa) ───────────
+  # Apple Developer akkaunti + Codemagic'da App Store Connect API key kerak.
+  ios-release:
+    name: FINN AI — iOS (App Store)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: FINN AI ASC        # Codemagic UI'da shu nom bilan API key ulang
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: uz.finn.app
+    scripts:
+      - name: Flutter paketlar
+        script: flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios && pod install
+      - name: Signing (avtomatik)
+        script: |
+          xcode-project use-profiles
+      - name: iOS build (.ipa)
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - nuriddin1392@gmail.com
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true          # TestFlight'ga avtomatik yuklaydi
+
+  # ─────────── iOS IMZOSIZ (test/ko'rish uchun, Apple akkauntsiz) ───────────
+  ios-unsigned:
+    name: FINN AI — iOS (imzosiz, sinov)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter paketlar
+        script: flutter pub get
+      - name: CocoaPods
+        script: cd ios && pod install
+      - name: iOS build (imzosiz)
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+    publishing:
+      email:
+        recipients:
+          - nuriddin1392@gmail.com
