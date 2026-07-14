@@ -11,7 +11,7 @@ on:
 
 jobs:
   ios:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
@@ -20,6 +20,11 @@ jobs:
       BUNDLE_ID: uz.finn.app
     steps:
       - uses: actions/checkout@v4
+
+      - name: Xcode 26 tanlash (Apple App Store talabi — iOS 26 SDK)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - uses: subosito/flutter-action@v2
         with:
