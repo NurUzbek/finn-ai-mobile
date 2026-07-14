@@ -33,6 +33,7 @@ dependencies:
   fl_chart: ^0.69.2
   intl: ^0.19.0
   url_launcher: ^6.3.1   # tarifni kengaytirish → finn.uz/subscription
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +49,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#0A2540"
+  adaptive_icon_background: "assets/icon_bg.png"
   adaptive_icon_foreground: "assets/icon_fg.png"

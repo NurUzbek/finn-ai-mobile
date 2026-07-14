@@ -17,6 +17,22 @@ class _RiskScreenState extends State<RiskScreen> {
   late Future<Map<String, dynamic>> _f = Api.risk();
   Future<void> _refresh() async => setState(() => _f = Api.risk(org: _org));
 
+  // Tarif yuklanishi tugagach ekran qayta qurilishi kerak — aks holda
+  // dastlab spinner ko'rsatib, keyin qulf/tafsilotga o'tmay qolib ketadi.
+  void _onPlan() { if (mounted) setState(() {}); }
+
+  @override
+  void initState() {
+    super.initState();
+    PlanState.i.addListener(_onPlan);
+  }
+
+  @override
+  void dispose() {
+    PlanState.i.removeListener(_onPlan);
+    super.dispose();
+  }
+
   static const _locked = LockedFeature(
     icon: Icons.speed_rounded,
     title: 'Risk tahlili',
@@ -74,22 +90,25 @@ class _RiskScreenState extends State<RiskScreen> {
 
               return RefreshIndicator(
                 color: C.cyan,
-                backgroundColor: C.cardDark,
+                backgroundColor: C.card(context),
                 onRefresh: _refresh,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   children: [
                     const PlanBanner(),
 
-                    if (orgs.length > 1) _orgPicker(orgs),
+                    if (orgs.length > 1) _orgPicker(context, orgs),
 
                     // Ball halqasi
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       decoration: BoxDecoration(
-                        color: C.cardDark,
+                        color: C.card(context),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: c.withValues(alpha: .3)),
+                        boxShadow: C.isDark(context)
+                            ? null
+                            : [BoxShadow(color: C.inkLight.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 4))],
                       ),
                       child: Column(children: [
                         SizedBox(
@@ -102,12 +121,12 @@ class _RiskScreenState extends State<RiskScreen> {
                                 strokeWidth: 10,
                                 strokeCap: StrokeCap.round,
                                 color: c,
-                                backgroundColor: Colors.white.withValues(alpha: .06),
+                                backgroundColor: C.muted(context, .1),
                               ),
                             ),
                             Column(mainAxisSize: MainAxisSize.min, children: [
                               Text('$score', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: c, height: 1)),
-                              Text('100 dan', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: .4))),
+                              Text('100 dan', style: TextStyle(fontSize: 11, color: C.muted(context, .4))),
                             ]),
                           ]),
                         ),
@@ -117,7 +136,7 @@ class _RiskScreenState extends State<RiskScreen> {
                         if (a['segment'] != null) ...[
                           const SizedBox(height: 4),
                           Text('Segment: ${a['segment']}',
-                              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .4))),
+                              style: TextStyle(fontSize: 11.5, color: C.muted(context, .4))),
                         ],
                       ]),
                     ),
@@ -130,9 +149,9 @@ class _RiskScreenState extends State<RiskScreen> {
                     ]),
 
                     const SizedBox(height: 22),
-                    const Text('Risk ko\'rsatkichlari', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    Text('Risk ko\'rsatkichlari', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: C.text(context))),
                     const SizedBox(height: 10),
-                    ...risks.map(_riskRow),
+                    ...risks.map((r) => _riskRow(context, r)),
                   ],
                 ),
               );
@@ -143,7 +162,7 @@ class _RiskScreenState extends State<RiskScreen> {
     );
   }
 
-  Widget _orgPicker(List<Map<String, dynamic>> orgs) => Padding(
+  Widget _orgPicker(BuildContext context, List<Map<String, dynamic>> orgs) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: SizedBox(
           height: 36,
@@ -160,12 +179,12 @@ class _RiskScreenState extends State<RiskScreen> {
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: sel ? C.blue.withValues(alpha: .18) : Colors.white.withValues(alpha: .04),
+                    color: sel ? C.blue.withValues(alpha: .18) : C.fill(context, .04),
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(color: sel ? C.cyan.withValues(alpha: .5) : Colors.transparent),
                   ),
                   child: Text('${o['name']}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? C.cyan : Colors.white70)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? C.cyan : C.muted(context, .7))),
                 ),
               );
             },
@@ -173,7 +192,7 @@ class _RiskScreenState extends State<RiskScreen> {
         ),
       );
 
-  Widget _riskRow(Map<String, dynamic> r) {
+  Widget _riskRow(BuildContext context, Map<String, dynamic> r) {
     final st = r['status'];
     final c = st == 'flag' ? C.red : (st == 'warn' ? C.amber : C.green);
     final ic = st == 'flag' ? Icons.error_outline : (st == 'warn' ? Icons.warning_amber_rounded : Icons.check_circle_outline);
@@ -182,9 +201,12 @@ class _RiskScreenState extends State<RiskScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: C.cardDark,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+        color: C.card(context),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: C.border(context, .06)),
+        boxShadow: C.isDark(context)
+            ? null
+            : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
@@ -195,11 +217,11 @@ class _RiskScreenState extends State<RiskScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${r['title']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            Text('${r['title']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: C.text(context))),
             if ((r['detail'] ?? '').toString().isNotEmpty) ...[
               const SizedBox(height: 3),
               Text('${r['detail']}',
-                  style: TextStyle(fontSize: 11.5, height: 1.45, color: Colors.white.withValues(alpha: .45))),
+                  style: TextStyle(fontSize: 11.5, height: 1.45, color: C.muted(context, .45))),
             ],
           ]),
         ),

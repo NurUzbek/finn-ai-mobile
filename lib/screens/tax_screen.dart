@@ -38,20 +38,20 @@ class _TaxScreenState extends State<TaxScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [C.red.withValues(alpha: .14), C.amber.withValues(alpha: .07)]),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: C.red.withValues(alpha: .25)),
                       ),
                       child: Row(children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Umumiy qarz', style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .55))),
+                          Text('Umumiy qarz', style: TextStyle(fontSize: 11.5, color: C.muted(context, .55))),
                           const SizedBox(height: 4),
                           Text(money(total), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: C.red)),
                         ])),
-                        Container(width: 1, height: 40, color: Colors.white.withValues(alpha: .08)),
+                        Container(width: 1, height: 40, color: C.muted(context, .12)),
                         Expanded(child: Padding(
                           padding: const EdgeInsets.only(left: 14),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Penya (MB $rate%)', style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .55))),
+                            Text('Penya (MB $rate%)', style: TextStyle(fontSize: 11.5, color: C.muted(context, .55))),
                             const SizedBox(height: 4),
                             Text(money(pen), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: C.amber)),
                           ]),
@@ -67,17 +67,20 @@ class _TaxScreenState extends State<TaxScreen> {
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: C.cardDark,
-                          borderRadius: BorderRadius.circular(15),
+                          color: C.card(context),
+                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: c.withValues(alpha: .22)),
+                          boxShadow: C.isDark(context)
+                              ? null
+                              : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
                         ),
                         child: Column(children: [
                           Row(children: [
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(t['tax_type'] ?? '—', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                              Text(t['tax_type'] ?? '—', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: C.text(context))),
                               const SizedBox(height: 2),
                               Text(t['org'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .42))),
+                                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .42))),
                             ])),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -88,23 +91,23 @@ class _TaxScreenState extends State<TaxScreen> {
                           ]),
                           const SizedBox(height: 12),
                           Row(children: [
-                            _mini('Qarz', money(t['amount']), Colors.white),
-                            _mini('Penya', money(t['penalty']), C.amber),
-                            _mini('Kuniga', '+${money(t['daily'])}', C.red),
+                            _mini(context, 'Qarz', money(t['amount']), C.text(context)),
+                            _mini(context, 'Penya', money(t['penalty']), C.amber),
+                            _mini(context, 'Kuniga', '+${money(t['daily'])}', C.red),
                           ]),
                           const SizedBox(height: 8),
                           Row(children: [
-                            Icon(Icons.event, size: 12, color: Colors.white.withValues(alpha: .35)),
+                            Icon(Icons.event, size: 12, color: C.muted(context, .35)),
                             const SizedBox(width: 5),
                             Text('Muddat: ${t['due_date'] ?? '—'}',
-                                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: .4))),
+                                style: TextStyle(fontSize: 11, color: C.muted(context, .4))),
                           ]),
                         ]),
                       );
                     }),
                     const SizedBox(height: 10),
                     Text('Penya = qarz × (MB stavka / 365) × kechikkan kunlar. Qarz summasidan oshmaydi (SK 110-modda).',
-                        style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: .32), height: 1.5)),
+                        style: TextStyle(fontSize: 10.5, color: C.muted(context, .32), height: 1.5)),
                   ],
                 );
               },
@@ -113,9 +116,9 @@ class _TaxScreenState extends State<TaxScreen> {
         ]),
       );
 
-  Widget _mini(String k, String v, Color c) => Expanded(
+  Widget _mini(BuildContext context, String k, String v, Color c) => Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(k, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: .4))),
+          Text(k, style: TextStyle(fontSize: 10, color: C.muted(context, .4))),
           const SizedBox(height: 2),
           FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
               child: Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c))),

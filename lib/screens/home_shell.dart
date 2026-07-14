@@ -9,6 +9,7 @@ import 'risk_screen.dart';
 import 'tax_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
+import 'chat_screen.dart';
 
 /// TZ 2-jadval: mobil ilova modullari — Asosiy, Mening tashkilotlarim,
 /// Risk tahlil (tarifga bog'liq), Monitoring (soliq), Bildirishnomalar, Ma'lumotlar (profil).
@@ -36,6 +37,10 @@ class _HomeShellState extends State<HomeShell> {
     // Tarif ilova ochilishida bir marta yuklanadi — bo'limlar shunga qarab qulflanadi.
     PlanState.i.addListener(_onPlan);
     PlanState.i.load();
+    // Xavfsizlik taymeri: 8 soniyada yuklanmasa — majburan tugallangan deb belgilaymiz.
+    Future.delayed(const Duration(seconds: 8), () {
+      if (mounted) PlanState.i.markLoaded();
+    });
   }
 
   @override
@@ -53,6 +58,25 @@ class _HomeShellState extends State<HomeShell> {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
   }
+
+  /// AI konsultant tugmasi — brend gradientli doira, o'ng-past burchakda.
+  Widget _chatFab(BuildContext context) => GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ChatScreen()),
+        ),
+        child: Container(
+          width: 58, height: 58,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [C.blue, C.cyan],
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: C.blue.withValues(alpha: .45), blurRadius: 18, offset: const Offset(0, 6))],
+          ),
+          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 26),
+        ),
+      );
 
   /// Tarifda yo'q bo'lim ikonkasi ustida qulf belgisi ko'rinadi.
   Widget _lockable(IconData icon, {required bool locked, Color? color}) {
@@ -77,10 +101,15 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       body: IndexedStack(index: _i, children: _tabs),
+      // AI konsultant — barcha tablarda ko'rinadigan suzuvchi tugma.
+      floatingActionButton: _chatFab(context),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: C.cardDark,
-          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: .06))),
+          color: C.card(context),
+          border: Border(top: BorderSide(color: C.border(context, .06))),
+          boxShadow: C.isDark(context)
+              ? null
+              : [BoxShadow(color: C.inkLight.withValues(alpha: .05), blurRadius: 16, offset: const Offset(0, -3))],
         ),
         child: NavigationBar(
           selectedIndex: _i,

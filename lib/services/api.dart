@@ -47,6 +47,7 @@ class Api {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     final uri = Uri.parse('$base$path');
     final headers = <String, String>{
@@ -62,10 +63,10 @@ class Api {
     try {
       switch (method) {
         case 'POST':
-          r = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(const Duration(seconds: 20));
+          r = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(timeout);
           break;
         default:
-          r = await http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+          r = await http.get(uri, headers: headers).timeout(timeout);
       }
     } catch (e) {
       return {'ok': false, 'message': 'Internetga ulanib bo\'lmadi'};
@@ -109,4 +110,9 @@ class Api {
       _req('GET', org == null ? '/risk' : '/risk?org=$org');
   static Future<Map<String, dynamic>> notifications() => _req('GET', '/notifications');
   static Future<Map<String, dynamic>> markRead() => _req('POST', '/notifications/read');
+
+  // ── AI konsultant (lokal Ollama + RAG) ──
+  /// Suhbat tarixini yuboradi. CPU inferens sekin (~10-30s) — 120s timeout.
+  static Future<Map<String, dynamic>> aiChat(List<Map<String, String>> messages) =>
+      _req('POST', '/ai', body: {'messages': messages}, timeout: const Duration(seconds: 120));
 }

@@ -28,9 +28,9 @@ class ScreenHeader extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4)),
+              Text(title, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4, color: C.text(context))),
               if (subtitle != null)
-                Text(subtitle!, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .45))),
+                Text(subtitle!, style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
             ]),
           ),
           if (action != null) action!,
@@ -38,39 +38,116 @@ class ScreenHeader extends StatelessWidget {
       );
 }
 
-/// Statistika kartasi (gradient chegara + katta raqam)
+/// Bosqichma-bosqich kirish animatsiyasi (fade + pastdan yuqoriga siljish).
+/// `index` — kechikishni belgilaydi (har biri ~55ms).
+class StaggerIn extends StatefulWidget {
+  final int index;
+  final Widget child;
+  const StaggerIn({super.key, required this.index, required this.child});
+  @override
+  State<StaggerIn> createState() => _StaggerInState();
+}
+
+class _StaggerInState extends State<StaggerIn> {
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 40 + widget.index * 55), () {
+      if (mounted) setState(() => _shown = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedSlide(
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        offset: _shown ? Offset.zero : const Offset(0, 0.09),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOut,
+          opacity: _shown ? 1 : 0,
+          child: widget.child,
+        ),
+      );
+}
+
+/// Kichik trend / holat chipi (yashil ↑ / qizil ↓ yoki neytral).
+class TrendChip extends StatelessWidget {
+  final String text;
+  final Color color;
+  final IconData? icon;
+  const TrendChip({super.key, required this.text, required this.color, this.icon});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[Icon(icon, size: 11, color: color), const SizedBox(width: 3)],
+          Text(text, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      );
+}
+
+/// Statistika kartasi (yumshoq ikonka + katta raqam + ixtiyoriy trend chipi)
 class StatCard extends StatelessWidget {
   final String label, value, unit;
   final IconData icon;
   final Color color;
-  const StatCard({super.key, required this.label, required this.value, required this.icon, required this.color, this.unit = ''});
+  final Widget? badge;
+  final num? animateValue;
+  final String Function(num)? valueFormat;
+  const StatCard({super.key, required this.label, required this.value, required this.icon, required this.color, this.unit = '', this.badge, this.animateValue, this.valueFormat});
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: C.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: .22)),
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: .2)),
+          boxShadow: C.isDark(context)
+              ? null
+              : [BoxShadow(color: C.inkLight.withValues(alpha: .05), blurRadius: 14, offset: const Offset(0, 5))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(color: color.withValues(alpha: .14), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 16, color: color),
-          ),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withValues(alpha: .14), borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, size: 16, color: color),
+            ),
+            const Spacer(),
+            if (badge != null) badge!,
+          ]),
           const SizedBox(height: 12),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              if (animateValue != null)
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: animateValue!.toDouble()),
+                  duration: const Duration(milliseconds: 850),
+                  curve: Curves.easeOutCubic,
+                  builder: (c, v, _) => Text(
+                    (valueFormat ?? (x) => x.round().toString())(v),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: C.text(context)),
+                  ),
+                )
+              else
+                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: C.text(context))),
               if (unit.isNotEmpty)
-                Text(' $unit', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: .5))),
+                Text(' $unit', style: TextStyle(fontSize: 11, color: C.muted(context, .5))),
             ]),
           ),
-          const SizedBox(height: 3),
-          Text(label, style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .5))),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
         ]),
       );
 }
@@ -93,7 +170,7 @@ class EmptyState extends StatelessWidget {
               child: Icon(icon, size: 32, color: color),
             ),
             const SizedBox(height: 16),
-            Text(text, textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: .5), fontSize: 13.5)),
+            Text(text, textAlign: TextAlign.center, style: TextStyle(color: C.muted(context, .5), fontSize: 13.5)),
           ]),
         ),
       );
@@ -119,7 +196,7 @@ class Loader extends StatelessWidget {
           }
           return RefreshIndicator(
             color: C.cyan,
-            backgroundColor: C.cardDark,
+            backgroundColor: C.card(ctx),
             onRefresh: onRefresh,
             child: builder(d),
           );

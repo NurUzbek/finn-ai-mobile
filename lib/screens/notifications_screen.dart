@@ -62,9 +62,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: unread ? c.withValues(alpha: .07) : C.cardDark,
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: unread ? c.withValues(alpha: .3) : Colors.white.withValues(alpha: .05)),
+                        color: unread ? c.withValues(alpha: .07) : C.card(ctx),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: unread ? c.withValues(alpha: .3) : C.border(ctx, .05)),
+                        boxShadow: C.isDark(ctx) || unread
+                            ? null
+                            : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
                       ),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Container(
@@ -76,14 +79,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [
                             Expanded(child: Text(n['title'] ?? '',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5))),
+                                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: C.text(ctx)))),
                             if (unread) Container(width: 7, height: 7,
                                 decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
                           ]),
                           const SizedBox(height: 5),
-                          Text(n['body'] ?? '', style: TextStyle(fontSize: 12, height: 1.45, color: Colors.white.withValues(alpha: .6))),
+                          Text(n['body'] ?? '', style: TextStyle(fontSize: 12, height: 1.45, color: C.muted(ctx, .65))),
                           const SizedBox(height: 7),
-                          Text(n['date'] ?? '', style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: .32))),
+                          Text(n['date'] ?? '', style: TextStyle(fontSize: 10.5, color: C.muted(ctx, .32))),
                         ])),
                       ]),
                     );

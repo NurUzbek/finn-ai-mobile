@@ -19,19 +19,37 @@ class PlanState extends ChangeNotifier {
   bool has(String key) => features[key] == true;
 
   Future<void> load() async {
-    final r = await Api.plan();
-    if (r['ok'] == true && r['plan'] != null) {
-      final p = r['plan'] as Map<String, dynamic>;
-      slug = p['slug'] ?? 'free';
-      name = p['name'] ?? '—';
-      isTrial = p['is_trial'] == true;
-      daysLeft = p['days_left'];
-      endsAt = p['ends_at'];
-      upgradeUrl = p['upgrade_url'] ?? upgradeUrl;
-      features = Map<String, dynamic>.from(p['features'] ?? {});
+    try {
+      // Xavfsizlik cheki: 8 soniyada javob kelmasa — bepul rejim deb qabul qilamiz,
+      // shunda UI hech qachon cheksiz aylanib qolmaydi.
+      final r = await Api.plan().timeout(const Duration(seconds: 8));
+      if (r['ok'] == true && r['plan'] != null) {
+        final p = r['plan'] as Map<String, dynamic>;
+        slug = p['slug'] ?? 'free';
+        name = p['name'] ?? '—';
+        isTrial = p['is_trial'] == true;
+        daysLeft = p['days_left'];
+        endsAt = p['ends_at'];
+        upgradeUrl = p['upgrade_url'] ?? upgradeUrl;
+        features = Map<String, dynamic>.from(p['features'] ?? {});
+      }
+    } catch (_) {
+      // Tarmoq/timeout xatosi — joriy (bepul) qiymatlar bilan davom etamiz.
+    } finally {
+      // MUHIM: har qanday holatda ham tugallangan deb belgilaymiz va UI'ni yangilaymiz,
+      // aks holda plan-gated ekranlar (Risk) cheksiz spinnerda qolib ketadi.
+      loaded = true;
+      notifyListeners();
     }
-    loaded = true;
-    notifyListeners();
+  }
+
+  /// Xavfsizlik: agar biror sabab bilan tarif hali yuklanmagan bo'lsa,
+  /// uni yuklangan (bepul) deb belgilaydi — cheksiz spinnerdan himoya.
+  void markLoaded() {
+    if (!loaded) {
+      loaded = true;
+      notifyListeners();
+    }
   }
 
   void clear() {

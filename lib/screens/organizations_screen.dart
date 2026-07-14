@@ -35,9 +35,12 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: C.cardDark,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+                        color: C.card(ctx),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: C.border(ctx, .06)),
+                        boxShadow: C.isDark(ctx)
+                            ? null
+                            : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
                       ),
                       child: Theme(
                         data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
@@ -52,23 +55,23 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                             ),
                             child: const Icon(Icons.apartment, color: Colors.white, size: 19),
                           ),
-                          title: Text(o['name'], style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                          title: Text(o['name'], style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: C.text(ctx))),
                           subtitle: Text('STIR ${o['stir'] ?? '—'}',
-                              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .42))),
+                              style: TextStyle(fontSize: 11.5, color: C.muted(ctx, .42))),
                           children: [
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                               child: Column(children: [
-                                _row('Direktor', o['director']),
-                                _row('Manzil', o['address']),
-                                _row('Bank', o['bank']),
-                                _row('MFO', o['mfo']),
-                                _row('Hisob raqam', o['account']),
+                                _row(ctx, 'Direktor', o['director']),
+                                _row(ctx, 'Manzil', o['address']),
+                                _row(ctx, 'Bank', o['bank']),
+                                _row(ctx, 'MFO', o['mfo']),
+                                _row(ctx, 'Hisob raqam', o['account']),
                                 const Divider(height: 22),
                                 Row(children: [
                                   const Icon(Icons.account_balance_wallet_outlined, size: 15, color: C.green),
                                   const SizedBox(width: 8),
-                                  const Text('Balans', style: TextStyle(fontSize: 12.5)),
+                                  Text('Balans', style: TextStyle(fontSize: 12.5, color: C.text(ctx))),
                                   const Spacer(),
                                   Text('${money(o['balance'])} so\'m',
                                       style: const TextStyle(fontWeight: FontWeight.w800, color: C.green, fontSize: 13.5)),
@@ -87,11 +90,11 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
         ]),
       );
 
-  Widget _row(String k, dynamic v) => Padding(
+  Widget _row(BuildContext ctx, String k, dynamic v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 100, child: Text(k, style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .4)))),
-          Expanded(child: Text('${v ?? '—'}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
+          SizedBox(width: 100, child: Text(k, style: TextStyle(fontSize: 11.5, color: C.muted(ctx, .4)))),
+          Expanded(child: Text('${v ?? '—'}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: C.text(ctx)))),
         ]),
       );
 }

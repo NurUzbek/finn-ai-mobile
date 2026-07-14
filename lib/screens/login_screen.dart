@@ -32,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final r = await Api.verify('998${_phone.text.replaceAll(RegExp(r'\D'), '')}', _code.text);
     setState(() => _busy = false);
     if (r['ok'] == true && mounted) {
+      // Autofill sessiyasini yopamiz (OTP muvaffaqiyatli ishlatildi).
+      TextInput.finishAutofillContext();
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const HomeShell()), (_) => false);
     } else {
@@ -43,10 +45,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [C.bgDark, Color(0xFF0A1B33), C.bgDark],
+            colors: C.isDark(context)
+                ? const [C.bgDark, Color(0xFF0A1B33), C.bgDark]
+                : const [C.bgLight, Color(0xFFE7EEF9), C.bgLight],
           ),
         ),
         child: SafeArea(
@@ -67,11 +71,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Center(child: Text('Fi', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white))),
                   ),
                   const SizedBox(height: 20),
-                  const Text('FINN AI', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  Text('FINN AI', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5, color: C.text(context))),
                   const SizedBox(height: 6),
                   Text('Soliq va hisobot muddatlaringiz nazoratda',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: .55), fontSize: 13)),
+                      style: TextStyle(color: C.muted(context, .55), fontSize: 13)),
                   const SizedBox(height: 28),
 
                   if (widget.expired)
@@ -82,13 +86,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: _codeStep ? _codeForm() : _phoneForm(),
+                      child: AutofillGroup(
+                        child: _codeStep ? _codeForm(context) : _phoneForm(context),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text('Kirish bilan siz ommaviy oferta shartlariga rozilik bildirasiz',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withValues(alpha: .35), fontSize: 11)),
+                      style: TextStyle(color: C.muted(context, .35), fontSize: 11)),
                 ],
               ),
             ),
@@ -113,23 +119,24 @@ class _LoginScreenState extends State<LoginScreen> {
         ]),
       );
 
-  Widget _phoneForm() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Telefon raqamingiz', style: TextStyle(fontWeight: FontWeight.w700)),
+  Widget _phoneForm(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Telefon raqamingiz', style: TextStyle(fontWeight: FontWeight.w700, color: C.text(context))),
         const SizedBox(height: 4),
         Text('SMS orqali tasdiqlash kodi yuboriladi',
-            style: TextStyle(color: Colors.white.withValues(alpha: .45), fontSize: 12)),
+            style: TextStyle(color: C.muted(context, .45), fontSize: 12)),
         const SizedBox(height: 16),
         TextField(
           controller: _phone,
           keyboardType: TextInputType.phone,
+          autofillHints: const [AutofillHints.telephoneNumberNational],
           inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
-          style: const TextStyle(fontSize: 17, letterSpacing: 1),
+          style: TextStyle(fontSize: 17, letterSpacing: 1, color: C.text(context)),
           decoration: InputDecoration(
             prefixText: '+998 ',
             prefixStyle: const TextStyle(color: C.cyan, fontSize: 17, fontWeight: FontWeight.w600),
             hintText: '90 123 45 67',
             filled: true,
-            fillColor: Colors.white.withValues(alpha: .04),
+            fillColor: C.fill(context, .04),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           ),
         ),
@@ -137,28 +144,29 @@ class _LoginScreenState extends State<LoginScreen> {
         _btn(_busy ? null : _send, 'Kod olish'),
       ]);
 
-  Widget _codeForm() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _codeForm(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           IconButton(onPressed: () => setState(() { _codeStep = false; _err = null; }),
               icon: const Icon(Icons.arrow_back, size: 18), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
           const SizedBox(width: 8),
-          const Text('Tasdiqlash kodi', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text('Tasdiqlash kodi', style: TextStyle(fontWeight: FontWeight.w700, color: C.text(context))),
         ]),
         const SizedBox(height: 4),
         Text('+998 ${_phone.text} raqamiga yuborilgan 4 xonali kod',
-            style: TextStyle(color: Colors.white.withValues(alpha: .45), fontSize: 12)),
+            style: TextStyle(color: C.muted(context, .45), fontSize: 12)),
         const SizedBox(height: 16),
         TextField(
           controller: _code,
           keyboardType: TextInputType.number,
+          autofillHints: const [AutofillHints.oneTimeCode],
           textAlign: TextAlign.center,
           maxLength: 4,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 14),
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 14, color: C.text(context)),
           decoration: InputDecoration(
             counterText: '',
             hintText: '••••',
             filled: true,
-            fillColor: Colors.white.withValues(alpha: .04),
+            fillColor: C.fill(context, .04),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           ),
           onChanged: (v) { if (v.length == 4) _verify(); },

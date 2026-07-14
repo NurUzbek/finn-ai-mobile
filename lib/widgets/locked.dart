@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/plan.dart';
+import '../screens/subscription_screen.dart';
 
 /// Tarifda mavjud bo'lmagan bo'lim — qulflangan holat.
 /// Foydalanuvchiga nima berilishini ko'rsatadi va tarifni kengaytirishga taklif qiladi.
@@ -18,13 +18,6 @@ class LockedFeature extends StatelessWidget {
     this.perks = const [],
   });
 
-  Future<void> _upgrade() async {
-    final uri = Uri.parse(PlanState.i.upgradeUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -38,11 +31,11 @@ class LockedFeature extends StatelessWidget {
               Container(
                 width: 96, height: 96,
                 decoration: BoxDecoration(
-                  color: C.cardDark,
+                  color: C.card(context),
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.white.withValues(alpha: .08)),
+                  border: Border.all(color: C.border(context, .08)),
                 ),
-                child: Icon(icon, size: 40, color: Colors.white.withValues(alpha: .22)),
+                child: Icon(icon, size: 40, color: C.muted(context, .22)),
               ),
               Positioned(
                 right: 0, bottom: 0,
@@ -51,7 +44,7 @@ class LockedFeature extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [C.amber, Color(0xFFEA8C0B)]),
                     borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: C.bgDark, width: 3),
+                    border: Border.all(color: C.bg(context), width: 3),
                   ),
                   child: const Icon(Icons.lock, size: 16, color: Colors.white),
                 ),
@@ -61,19 +54,19 @@ class LockedFeature extends StatelessWidget {
           const SizedBox(height: 22),
 
           Text(title, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.3, color: C.text(context))),
           const SizedBox(height: 8),
           Text(description, textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, height: 1.55, color: Colors.white.withValues(alpha: .5))),
+              style: TextStyle(fontSize: 13.5, height: 1.55, color: C.muted(context, .5))),
 
           if (perks.isNotEmpty) ...[
             const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: C.cardDark,
+                color: C.card(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: .06)),
+                border: Border.all(color: C.border(context, .06)),
               ),
               child: Column(children: [
                 for (final p in perks)
@@ -102,14 +95,14 @@ class LockedFeature extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .04),
+              color: C.fill(context, .04),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.workspace_premium_outlined, size: 15, color: Colors.white.withValues(alpha: .45)),
+              Icon(Icons.workspace_premium_outlined, size: 15, color: C.muted(context, .45)),
               const SizedBox(width: 7),
-              Text('Joriy tarif: ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .45))),
-              Text(PlanState.i.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+              Text('Joriy tarif: ', style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
+              Text(PlanState.i.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: C.text(context))),
             ]),
           ),
           const SizedBox(height: 16),
@@ -123,7 +116,7 @@ class LockedFeature extends StatelessWidget {
                 boxShadow: [BoxShadow(color: C.blue.withValues(alpha: .35), blurRadius: 22, offset: const Offset(0, 8))],
               ),
               child: TextButton.icon(
-                onPressed: _upgrade,
+                onPressed: () => openSubscription(context),
                 icon: const Icon(Icons.rocket_launch_outlined, size: 18, color: Colors.white),
                 label: const Text('Tarifni kengaytirish',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
@@ -132,7 +125,7 @@ class LockedFeature extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text('Tarif finn.uz saytida yangilanadi',
-              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: .3))),
+              style: TextStyle(fontSize: 11, color: C.muted(context, .3))),
         ]),
       ),
     );
@@ -172,10 +165,7 @@ class PlanBanner extends StatelessWidget {
         Expanded(child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c))),
         if (free || soon)
           GestureDetector(
-            onTap: () async {
-              final uri = Uri.parse(p.upgradeUrl);
-              if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
-            },
+            onTap: () => openSubscription(context),
             child: Text('Kengaytirish →', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: c)),
           ),
       ]),
