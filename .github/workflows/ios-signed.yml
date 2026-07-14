@@ -52,6 +52,15 @@ jobs:
       - name: Xcode profillari (pod install'dan KEYIN)
         run: xcode-project use-profiles
 
+      - name: Profillarni Xcode 16 joyiga ko'chirish (topilishi uchun)
+        run: |
+          SRC="$HOME/Library/MobileDevice/Provisioning Profiles"
+          DST="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$DST"
+          cp "$SRC"/*.mobileprovision "$DST"/ 2>/dev/null || true
+          echo "Eski joy:"; ls "$SRC" 2>/dev/null || echo "  yo'q"
+          echo "Yangi joy:"; ls "$DST" 2>/dev/null || echo "  yo'q"
+
       - name: iOS build (imzolangan .ipa)
         run: flutter build ipa --release --export-options-plist "$HOME/export_options.plist"
 
