@@ -52,6 +52,16 @@ jobs:
       - name: Xcode profillari
         run: xcode-project use-profiles
 
+      - name: Profillarni IKALA joyga ko'chirish (Xcode 15.4 eski joyni o'qiydi)
+        run: |
+          A="$HOME/Library/MobileDevice/Provisioning Profiles"
+          B="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$A" "$B"
+          cp "$B"/*.mobileprovision "$A"/ 2>/dev/null || true
+          cp "$A"/*.mobileprovision "$B"/ 2>/dev/null || true
+          echo "Eski joy (Xcode 15.4 shu yerdan o'qiydi):"; ls "$A" 2>/dev/null || echo "  bo'sh"
+          echo "Yangi joy:"; ls "$B" 2>/dev/null || echo "  bo'sh"
+
       - name: Archive (xcodebuild — xatolar ko'rinadi)
         run: |
           set -o pipefail
