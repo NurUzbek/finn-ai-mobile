@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════
+#  FINN AI — imzolangan iOS build + TestFlight (Apple akkaunt bilan)
+#  App Store Connect API key orqali AVTOMATIK imzo (sertifikat/profil
+#  o'zi yaratiladi) — Codemagic servisi kerak emas, GitHub Actions macOS.
+#  Ishga tushirish: Actions → "iOS signed (TestFlight)" → Run workflow
+# ═══════════════════════════════════════════════════════════════════
+name: iOS signed (TestFlight)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-14
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+      BUNDLE_ID: uz.finn.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Codemagic CLI tools (imzo avtomatizatsiyasi)
+        run: pip3 install codemagic-cli-tools
+
+      - name: Flutter paketlar
+        run: flutter pub get
+
+      - name: Bundle ID ro'yxatdan o'tkazish (bo'lmasa)
+        run: app-store-connect bundle-ids register "$BUNDLE_ID" --name "FINN AI" --platform IOS || true
+
+      - name: Imzo fayllari (sertifikat + profil avtomatik)
+        run: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY" \
+            --create
+
+      - name: Keychain + sertifikatlar
+        run: |
+          keychain initialize
+          keychain add-certificates
+
+      - name: Xcode profillari
+        run: xcode-project use-profiles
+
+      - name: CocoaPods
+        run: cd ios && pod install
+
+      - name: iOS build (imzolangan .ipa)
+        run: flutter build ipa --release --export-options-plist "$HOME/export_options.plist"
+
+      - name: TestFlight'ga yuklash (app record bo'lsa)
+        run: |
+          app-store-connect publish \
+            --path "$(find build/ios/ipa -name '*.ipa' | head -1)" \
+            --testflight || echo "TestFlight yuklanmadi — App Store Connect'da app record yaratilishi kerak (.ipa baribir tayyor)"
+
+      - name: Imzolangan .ipa artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: finn-ios-signed-ipa
+          path: build/ios/ipa/*.ipa
