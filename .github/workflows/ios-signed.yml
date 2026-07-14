@@ -26,7 +26,7 @@ jobs:
           channel: stable
 
       - name: Codemagic CLI tools (imzo avtomatizatsiyasi)
-        run: pip3 install codemagic-cli-tools
+        run: pip3 install --break-system-packages codemagic-cli-tools
 
       - name: Flutter paketlar
         run: flutter pub get
