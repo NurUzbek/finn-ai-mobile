@@ -46,11 +46,11 @@ jobs:
           keychain initialize
           keychain add-certificates
 
-      - name: Xcode profillari
-        run: xcode-project use-profiles
-
       - name: CocoaPods
         run: cd ios && pod install
+
+      - name: Xcode profillari (pod install'dan KEYIN)
+        run: xcode-project use-profiles
 
       - name: iOS build (imzolangan .ipa)
         run: flutter build ipa --release --export-options-plist "$HOME/export_options.plist"
