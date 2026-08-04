@@ -103,6 +103,8 @@ class Api {
   // ── Ma'lumotlar ──
   static Future<Map<String, dynamic>> me() => _req('GET', '/me');
   static Future<Map<String, dynamic>> plan() => _req('GET', '/plan');
+  // WebView'da veb-sessiyani ochish uchun bir martalik chipta
+  static Future<Map<String, dynamic>> webTicket() => _req('POST', '/web-ticket');
   static Future<Map<String, dynamic>> dashboard() => _req('GET', '/dashboard');
   static Future<Map<String, dynamic>> organizations() => _req('GET', '/organizations');
   static Future<Map<String, dynamic>> tax() => _req('GET', '/tax');
