@@ -121,13 +121,14 @@ class _PinScreenState extends State<PinScreen> {
         child: Column(children: [
           const Spacer(flex: 2),
           Container(
-            width: 66, height: 66,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [C.blue, C.cyan]),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [BoxShadow(color: C.cyan.withValues(alpha: .4), blurRadius: 24, offset: const Offset(0, 10))],
             ),
-            child: const Center(child: Text('Fi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26))),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset('assets/logo.png', width: 66, height: 66, fit: BoxFit.cover),
+            ),
           ),
           const SizedBox(height: 20),
           Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: C.text(context))),

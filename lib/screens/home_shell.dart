@@ -135,8 +135,7 @@ class _HomeShellState extends State<HomeShell> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Row(children: [
-              Container(width: 44, height: 44, decoration: BoxDecoration(gradient: const LinearGradient(colors: [C.blue, C.cyan]), borderRadius: BorderRadius.circular(13)),
-                  child: const Center(child: Text('Fi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)))),
+              ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.asset('assets/logo.png', width: 44, height: 44, fit: BoxFit.cover)),
               const SizedBox(width: 12),
               Text('FINN AI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: C.text(context))),
             ]),
