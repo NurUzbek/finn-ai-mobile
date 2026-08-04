@@ -60,16 +60,24 @@ class Api {
     }
 
     late http.Response r;
+    final client = http.Client();
     try {
-      switch (method) {
-        case 'POST':
-          r = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(timeout);
-          break;
-        default:
-          r = await http.get(uri, headers: headers).timeout(timeout);
-      }
+      // followRedirects: false — POST redirect'ga tushib GET'ga aylanishini oldini olamiz
+      // (aks holda "GET method not supported" xatosi chiqadi).
+      final request = http.Request(method, uri)
+        ..headers.addAll(headers)
+        ..followRedirects = false;
+      if (method == 'POST') request.body = jsonEncode(body ?? {});
+      final streamed = await client.send(request).timeout(timeout);
+      r = await http.Response.fromStream(streamed);
     } catch (e) {
       return {'ok': false, 'message': 'Internetga ulanib bo\'lmadi'};
+    } finally {
+      client.close();
+    }
+    // Server noto'g'ri redirect qilsa (Accept yo'qligidan) — aniq xabar
+    if (r.statusCode >= 300 && r.statusCode < 400) {
+      return {'ok': false, 'message': 'Server javobi noto\'g\'ri. Ilovani yangilang.'};
     }
 
     if (r.statusCode == 401) {
