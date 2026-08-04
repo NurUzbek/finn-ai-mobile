@@ -66,6 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final debt = (s['debts_total'] ?? 0) as num;
               final penalty = (s['penalty_total'] ?? 0) as num;
               final unread = ((s['unread_notifications'] ?? 0) as num).toInt();
+              final recent = ((d['recent'] as List?) ?? []).cast<dynamic>();
 
               return ListView(
                 physics: const BouncingScrollPhysics(
@@ -93,8 +94,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           action: orgCount > 0 ? tr('common.all') : null,
                           onAction: () => homeTab.value = 1)),
                   StaggerIn(index: 8, child: _orgSection(orgs)),
-                  StaggerIn(index: 9, child: _eyebrow(tr('dash.recommendation'))),
-                  StaggerIn(index: 10, child: _ai(overdue, penalty)),
+                  if (recent.isNotEmpty) ...[
+                    StaggerIn(
+                        index: 9,
+                        child: _eyebrow(tr('dash.recentAlerts'),
+                            action: tr('common.all'), onAction: () => homeTab.value = 4)),
+                    StaggerIn(index: 10, child: _recentSection(recent)),
+                  ],
+                  StaggerIn(index: 11, child: _eyebrow(tr('dash.recommendation'))),
+                  StaggerIn(index: 12, child: _ai(overdue, penalty)),
                 ],
               );
             },
@@ -735,6 +743,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(tr('dash.debt'),
                   style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
             ]),
+        ]),
+      ),
+    );
+  }
+
+  // ─────────────────────────── SO'NGGI XABARLAR ───────────────────────────
+  (IconData, Color) _notifStyle(String type, String priority) {
+    if (type.contains('security')) return (Icons.lock_outline_rounded, C.violet);
+    if (priority == 'high' || type.contains('tax') || type.contains('debt') || type.contains('penalty')) {
+      return (Icons.account_balance_rounded, C.red);
+    }
+    if (type.contains('ai')) return (Icons.auto_awesome_rounded, C.brand);
+    if (type.contains('paid') || type.contains('success')) return (Icons.check_rounded, C.green);
+    if (type.contains('report') || type.contains('deadline')) return (Icons.warning_amber_rounded, C.amber);
+    return (Icons.notifications_rounded, C.brand);
+  }
+
+  Widget _recentSection(List recent) => Column(
+        children: [
+          for (final n in recent.take(3)) ...[
+            _recentRow(n as Map),
+            const SizedBox(height: 9),
+          ],
+        ],
+      );
+
+  Widget _recentRow(Map n) {
+    final st = _notifStyle((n['type'] ?? '').toString(), (n['priority'] ?? '').toString());
+    final unread = n['read'] != true;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => homeTab.value = 4,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38, height: 38, alignment: Alignment.center,
+            decoration: BoxDecoration(color: C.tint(context, st.$2), borderRadius: BorderRadius.circular(12)),
+            child: Icon(st.$1, color: st.$2, size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text((n['title'] ?? '').toString(),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: C.text(context))),
+              const SizedBox(height: 2),
+              Text((n['date'] ?? '').toString(),
+                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45))),
+            ]),
+          ),
+          if (unread)
+            Container(width: 8, height: 8, decoration: const BoxDecoration(color: C.red, shape: BoxShape.circle)),
         ]),
       ),
     );

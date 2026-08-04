@@ -211,6 +211,12 @@ class _RiskScreenState extends State<RiskScreen> {
           child: Text(_levelLabel(score),
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _onColor(context, score))),
         ),
+        const SizedBox(height: 11),
+        Text(
+          score <= 30 ? tr('risk.meta.low') : (score <= 60 ? tr('risk.meta.mid') : tr('risk.meta.high')),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, height: 1.4, color: C.muted(context, .5)),
+        ),
       ]),
     );
   }

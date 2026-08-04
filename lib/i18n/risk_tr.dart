@@ -34,6 +34,9 @@ const Map<String, Map<String, String>> tr = {
   // ── Bo'lim sarlavhasi ──
   'risk.detected': {'uz': 'Aniqlangan risklar', 'uzc': 'Аниқланган рисклар', 'ru': 'Выявленные риски', 'en': 'Detected risks'},
   'risk.factors': {'uz': 'Ballga nima ta\'sir qildi', 'uzc': 'Баллга нима таъсир қилди', 'ru': 'Что повлияло на балл', 'en': 'What affected the score'},
+  'risk.meta.low': {'uz': 'Yaqin 12 oyda tekshiruv ehtimoli kam', 'uzc': 'Яқин 12 ойда текширув эҳтимоли кам', 'ru': 'Низкая вероятность проверки в ближайшие 12 месяцев', 'en': 'Low audit probability in the next 12 months'},
+  'risk.meta.mid': {'uz': 'O\'rtacha tekshiruv ehtimoli — e\'tibor bering', 'uzc': 'Ўртача текширув эҳтимоли — эътибор беринг', 'ru': 'Средняя вероятность проверки — будьте внимательны', 'en': 'Moderate audit probability — stay alert'},
+  'risk.meta.high': {'uz': 'Tekshiruv ehtimoli yuqori — risklarni yoping', 'uzc': 'Текширув эҳтимоли юқори — рискларни ёпинг', 'ru': 'Высокая вероятность проверки — устраните риски', 'en': 'High audit probability — resolve the risks'},
 
   // ── Bo'sh / xato holatlar ──
   'risk.empty.noOrg': {'uz': 'Avval tashkilot qo\'shing', 'uzc': 'Аввал ташкилот қўшинг', 'ru': 'Сначала добавьте организацию', 'en': 'Add an organization first'},

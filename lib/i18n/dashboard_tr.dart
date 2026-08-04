@@ -25,6 +25,7 @@ const Map<String, Map<String, String>> tr = {
   'dash.financialStatus': {'uz': 'Moliyaviy holat', 'uzc': 'Молиявий ҳолат', 'ru': 'Финансовое состояние', 'en': 'Financial status'},
   'dash.yourFirms': {'uz': 'Firmalaringiz', 'uzc': 'Фирмаларингиз', 'ru': 'Ваши фирмы', 'en': 'Your firms'},
   'dash.recommendation': {'uz': 'Tavsiya', 'uzc': 'Тавсия', 'ru': 'Рекомендация', 'en': 'Recommendation'},
+  'dash.recentAlerts': {'uz': 'So\'nggi xabarlar', 'uzc': 'Сўнгги хабарлар', 'ru': 'Последние сообщения', 'en': 'Recent alerts'},
 
   // ── Moliyaviy kartalar ──
   'dash.totalDebt': {'uz': 'Umumiy qarz', 'uzc': 'Умумий қарз', 'ru': 'Общий долг', 'en': 'Total debt'},
