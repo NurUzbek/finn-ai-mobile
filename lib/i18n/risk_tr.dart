@@ -33,6 +33,7 @@ const Map<String, Map<String, String>> tr = {
 
   // ── Bo'lim sarlavhasi ──
   'risk.detected': {'uz': 'Aniqlangan risklar', 'uzc': 'Аниқланган рисклар', 'ru': 'Выявленные риски', 'en': 'Detected risks'},
+  'risk.factors': {'uz': 'Ballga nima ta\'sir qildi', 'uzc': 'Баллга нима таъсир қилди', 'ru': 'Что повлияло на балл', 'en': 'What affected the score'},
 
   // ── Bo'sh / xato holatlar ──
   'risk.empty.noOrg': {'uz': 'Avval tashkilot qo\'shing', 'uzc': 'Аввал ташкилот қўшинг', 'ru': 'Сначала добавьте организацию', 'en': 'Add an organization first'},

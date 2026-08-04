@@ -134,6 +134,21 @@ class _RiskScreenState extends State<RiskScreen> {
                       ]),
                     ),
 
+                    // Ballga nima ta'sir qildi — omillar (severity bo'yicha)
+                    ...() {
+                      final factors = risks
+                          .where((r) => r['status'] == 'flag' || r['status'] == 'warn')
+                          .toList()
+                        ..sort((a, b) => ((b['severity'] ?? 0) as num).compareTo((a['severity'] ?? 0) as num));
+                      if (factors.isEmpty) return <Widget>[];
+                      return [
+                        const SizedBox(height: 22),
+                        _eyebrow(context, tr('risk.factors')),
+                        const SizedBox(height: 10),
+                        StaggerIn(index: 1, child: _barsCard(context, factors.take(6).toList())),
+                      ];
+                    }(),
+
                     const SizedBox(height: 22),
                     _eyebrow(context, tr('risk.detected')),
                     const SizedBox(height: 10),
@@ -198,6 +213,64 @@ class _RiskScreenState extends State<RiskScreen> {
         ),
       ]),
     );
+  }
+
+  // ─── Ballga ta'sir qilgan omillar (severity bars) ──────────────
+  Widget _barsCard(BuildContext context, List<Map<String, dynamic>> factors) {
+    final maxSev = factors.fold<double>(1, (m, f) => math.max(m, ((f['severity'] ?? 0) as num).toDouble()));
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: C.card(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: C.border(context)),
+        boxShadow: C.shadow(context),
+      ),
+      child: Column(children: [
+        for (var i = 0; i < factors.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          _bar(context, factors[i], maxSev),
+        ],
+      ]),
+    );
+  }
+
+  Widget _bar(BuildContext context, Map<String, dynamic> f, double maxSev) {
+    final sev = ((f['severity'] ?? 0) as num).toDouble();
+    final frac = (sev / maxSev).clamp(0.0, 1.0);
+    final col = f['status'] == 'flag' ? C.red : C.amber;
+    return Row(children: [
+      SizedBox(
+        width: 108,
+        child: Text('${f['title']}',
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, letterSpacing: -.1, color: C.muted(context, .8))),
+      ),
+      const SizedBox(width: 11),
+      Expanded(
+        child: Container(
+          height: 7,
+          decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(4)),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: frac),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (_, v, __) => FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: v,
+              child: Container(decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4))),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 11),
+      SizedBox(
+        width: 30,
+        child: Text('+${sev.toInt()}',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: C.text(context))),
+      ),
+    ]);
   }
 
   // ─── Tashkilot chiplari ─────────────────────────────────────────
