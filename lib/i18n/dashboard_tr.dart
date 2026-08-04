@@ -26,6 +26,20 @@ const Map<String, Map<String, String>> tr = {
   'dash.yourFirms': {'uz': 'Firmalaringiz', 'uzc': 'Фирмаларингиз', 'ru': 'Ваши фирмы', 'en': 'Your firms'},
   'dash.recommendation': {'uz': 'Tavsiya', 'uzc': 'Тавсия', 'ru': 'Рекомендация', 'en': 'Recommendation'},
   'dash.recentAlerts': {'uz': 'So\'nggi xabarlar', 'uzc': 'Сўнгги хабарлар', 'ru': 'Последние сообщения', 'en': 'Recent alerts'},
+  'dash.sections': {'uz': 'Bo\'limlar', 'uzc': 'Бўлимлар', 'ru': 'Разделы', 'en': 'Sections'},
+  // Modul yorliqlari (dashboard grid)
+  'mod.financial': {'uz': 'Kirim/chiqim', 'uzc': 'Кирим/чиқим', 'ru': 'Приход/расход', 'en': 'Cash flow'},
+  'mod.wallet': {'uz': 'Hamyon', 'uzc': 'Ҳамён', 'ru': 'Кошелёк', 'en': 'Wallet'},
+  'mod.currency': {'uz': 'Valyuta', 'uzc': 'Валюта', 'ru': 'Валюта', 'en': 'Currency'},
+  'mod.documents': {'uz': 'Hujjatlar', 'uzc': 'Ҳужжатлар', 'ru': 'Документы', 'en': 'Documents'},
+  'mod.didox': {'uz': 'E-hujjat', 'uzc': 'Э-ҳужжат', 'ru': 'Э-документ', 'en': 'E-invoice'},
+  'mod.reports': {'uz': 'Hisobotlar', 'uzc': 'Ҳисоботлар', 'ru': 'Отчёты', 'en': 'Reports'},
+  'mod.calendar': {'uz': 'Kalendar', 'uzc': 'Календар', 'ru': 'Календарь', 'en': 'Calendar'},
+  'mod.employees': {'uz': 'Xodimlar', 'uzc': 'Ходимлар', 'ru': 'Сотрудники', 'en': 'Employees'},
+  'mod.team': {'uz': 'Jamoa', 'uzc': 'Жамоа', 'ru': 'Команда', 'en': 'Team'},
+  'mod.counterparty': {'uz': 'Kontragent', 'uzc': 'Контрагент', 'ru': 'Контрагент', 'en': 'Counterparty'},
+  'mod.audit': {'uz': 'Audit', 'uzc': 'Аудит', 'ru': 'Аудит', 'en': 'Audit'},
+  'mod.enforcement': {'uz': 'Ijro', 'uzc': 'Ижро', 'ru': 'Взыскание', 'en': 'Enforcement'},
 
   // ── Moliyaviy kartalar ──
   'dash.totalDebt': {'uz': 'Umumiy qarz', 'uzc': 'Умумий қарз', 'ru': 'Общий долг', 'en': 'Total debt'},

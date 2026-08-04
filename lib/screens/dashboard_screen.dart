@@ -6,6 +6,18 @@ import '../services/i18n.dart';
 import '../widgets/common.dart';
 import 'subscription_screen.dart';
 import 'chat_screen.dart';
+import 'financial_screen.dart';
+import 'wallet_screen.dart';
+import 'currency_screen.dart';
+import 'documents_screen.dart';
+import 'didox_screen.dart';
+import 'reports_screen.dart';
+import 'calendar_screen.dart';
+import 'employees_screen.dart';
+import 'team_screen.dart';
+import 'counterparty_screen.dart';
+import 'audit_report_screen.dart';
+import 'enforcement_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -88,6 +100,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: _eyebrow(tr('dash.financialStatus'),
                           action: tr('common.details'), onAction: () => homeTab.value = 3)),
                   StaggerIn(index: 6, child: _financials(debt, penalty)),
+                  StaggerIn(index: 7, child: _eyebrow(tr('dash.sections'))),
+                  StaggerIn(index: 8, child: _modulesGrid(context)),
                   StaggerIn(
                       index: 7,
                       child: _eyebrow(tr('dash.yourFirms'),
@@ -624,6 +638,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  // ─────────────────────────── BO'LIMLAR (barcha modullar) ───────────────────────────
+  Widget _modulesGrid(BuildContext context) {
+    final mods = <(IconData, String, Color, Widget)>[
+      (Icons.swap_vert_rounded, tr('mod.financial'), C.green, const FinancialScreen()),
+      (Icons.account_balance_wallet_outlined, tr('mod.wallet'), C.brand, const WalletScreen()),
+      (Icons.currency_exchange_rounded, tr('mod.currency'), C.cyan, const CurrencyScreen()),
+      (Icons.description_outlined, tr('mod.documents'), C.blue, const DocumentsScreen()),
+      (Icons.receipt_long_outlined, tr('mod.didox'), C.violet, const DidoxScreen()),
+      (Icons.assessment_outlined, tr('mod.reports'), C.sky, const ReportsScreen()),
+      (Icons.event_note_outlined, tr('mod.calendar'), C.amber, const CalendarScreen()),
+      (Icons.people_alt_outlined, tr('mod.employees'), C.violet, const EmployeesScreen()),
+      (Icons.groups_outlined, tr('mod.team'), C.brand, const TeamScreen()),
+      (Icons.handshake_outlined, tr('mod.counterparty'), C.cyan, const CounterpartyScreen()),
+      (Icons.verified_outlined, tr('mod.audit'), C.green, const AuditReportScreen()),
+      (Icons.gavel_rounded, tr('mod.enforcement'), C.red, const EnforcementScreen()),
+    ];
+    return GridView.count(
+      crossAxisCount: 4,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 10,
+      childAspectRatio: .84,
+      children: [
+        for (final m in mods)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => m.$4)),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              _MagneticTap(
+                child: Container(
+                  width: 56, height: 56, alignment: Alignment.center,
+                  decoration: BoxDecoration(color: C.tint(context, m.$3), borderRadius: BorderRadius.circular(18)),
+                  child: Icon(m.$1, color: m.$3, size: 24),
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(m.$2,
+                  maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: C.muted(context, .72))),
+            ]),
+          ),
+      ],
     );
   }
 
