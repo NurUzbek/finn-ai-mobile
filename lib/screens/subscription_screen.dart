@@ -8,6 +8,11 @@ import '../services/plan.dart';
 /// Native tarif/to'lov ekrani — WebView emas. Tariflar API'dan (`/plans`),
 /// to'lov `/checkout` orqali yaratiladi. Faqat provayder to'lov sahifasi
 /// (Payme/Click, PCI) minimal WebView'da ochiladi.
+/// Subscription ekranini ochish (profile / locked widgetlar ishlatadi).
+void openSubscription(BuildContext context) {
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionScreen()));
+}
+
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
   @override
