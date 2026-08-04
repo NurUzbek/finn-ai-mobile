@@ -10,6 +10,19 @@ import 'tax_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'chat_screen.dart';
+import 'financial_screen.dart';
+import 'wallet_screen.dart';
+import 'documents_screen.dart';
+import 'reports_screen.dart';
+import 'didox_screen.dart';
+import 'counterparty_screen.dart';
+import 'enforcement_screen.dart';
+import 'employees_screen.dart';
+import 'team_screen.dart';
+import 'audit_report_screen.dart';
+import 'calendar_screen.dart';
+import 'currency_screen.dart';
+import 'subscription_screen.dart';
 
 /// TZ 2-jadval: mobil ilova modullari — Asosiy, Mening tashkilotlarim,
 /// Risk tahlil (tarifga bog'liq), Monitoring (soliq), Bildirishnomalar, Ma'lumotlar (profil).
@@ -95,11 +108,70 @@ class _HomeShellState extends State<HomeShell> {
     ]);
   }
 
+  /// Barcha modullar menyusi (veb bilan parity) — chiroyli native drawer.
+  Widget _drawer(BuildContext context) {
+    Widget item(IconData ic, String label, Widget screen, Color col) => ListTile(
+          leading: Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(color: col.withValues(alpha: .13), borderRadius: BorderRadius.circular(11)),
+            child: Icon(ic, color: col, size: 20),
+          ),
+          title: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5, color: C.text(context))),
+          trailing: Icon(Icons.chevron_right, size: 18, color: C.muted(context, .3)),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+          },
+        );
+    Widget section(String t) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1, color: C.muted(context, .45))),
+        );
+
+    return Drawer(
+      backgroundColor: C.bg(context),
+      child: SafeArea(
+        child: ListView(padding: EdgeInsets.zero, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Row(children: [
+              Container(width: 44, height: 44, decoration: BoxDecoration(gradient: const LinearGradient(colors: [C.blue, C.cyan]), borderRadius: BorderRadius.circular(13)),
+                  child: const Center(child: Text('Fi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)))),
+              const SizedBox(width: 12),
+              Text('FINN AI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: C.text(context))),
+            ]),
+          ),
+          section('MOLIYA'),
+          item(Icons.swap_vert_rounded, 'Kirim va chiqim', const FinancialScreen(), C.green),
+          item(Icons.account_balance_wallet_outlined, 'Hamyon', const WalletScreen(), C.blue),
+          item(Icons.currency_exchange_rounded, 'Valyuta kurslari', const CurrencyScreen(), C.cyan),
+          section('HUJJATLAR'),
+          item(Icons.description_outlined, 'Hujjatlar', const DocumentsScreen(), C.blue),
+          item(Icons.receipt_long_outlined, 'E-hujjat (Didox)', const DidoxScreen(), C.violet),
+          item(Icons.assessment_outlined, 'Hisobotlar', const ReportsScreen(), C.sky),
+          item(Icons.event_note_outlined, 'Ish kalendari', const CalendarScreen(), C.amber),
+          section('BIZNES'),
+          item(Icons.people_alt_outlined, 'Xodimlar', const EmployeesScreen(), C.violet),
+          item(Icons.groups_outlined, 'Jamoa va rollar', const TeamScreen(), C.blue),
+          item(Icons.handshake_outlined, 'Kontragentlar', const CounterpartyScreen(), C.cyan),
+          section('NAZORAT'),
+          item(Icons.verified_outlined, 'Audit hisoboti', const AuditReportScreen(), C.green),
+          item(Icons.gavel_rounded, 'Ijro hujjatlari', const EnforcementScreen(), C.red),
+          section('HISOB'),
+          item(Icons.workspace_premium_outlined, 'Obuna / Tarif', const SubscriptionScreen(), C.amber),
+          const SizedBox(height: 20),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final riskLocked = PlanState.i.loaded && !PlanState.i.has('risk');
 
     return Scaffold(
+      key: homeScaffoldKey,
+      drawer: _drawer(context),
       body: IndexedStack(index: _i, children: _tabs),
       // AI konsultant — barcha tablarda ko'rinadigan suzuvchi tugma.
       floatingActionButton: _chatFab(context),

@@ -67,6 +67,8 @@ class C {
 }
 
 final navKey = GlobalKey<NavigatorState>();
+/// HomeShell Scaffold kaliti — ichki ekranlardan drawer'ni ochish uchun.
+final homeScaffoldKey = GlobalKey<ScaffoldState>();
 
 class FinnApp extends StatefulWidget {
   const FinnApp({super.key});

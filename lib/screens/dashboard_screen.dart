@@ -130,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 4),
           Text('Biznesingiz bugun nazoratda', style: TextStyle(fontSize: 13.5, color: C.muted(context, .5))),
         ])),
-        _iconBtn(Icons.search_rounded),
+        _iconBtn(Icons.grid_view_rounded, onTap: () => homeScaffoldKey.currentState?.openDrawer()),
         const SizedBox(width: 10),
         _iconBtn(Icons.notifications_none_rounded, badge: unread),
       ]);

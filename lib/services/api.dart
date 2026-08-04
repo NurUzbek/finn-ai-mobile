@@ -104,6 +104,19 @@ class Api {
   static Future<Map<String, dynamic>> me() => _req('GET', '/me');
   static Future<Map<String, dynamic>> plan() => _req('GET', '/plan');
   static Future<Map<String, dynamic>> plans() => _req('GET', '/plans');
+  // ── Veb parity modullari ──
+  static Future<Map<String, dynamic>> financial() => _req('GET', '/financial');
+  static Future<Map<String, dynamic>> wallet() => _req('GET', '/wallet');
+  static Future<Map<String, dynamic>> documents() => _req('GET', '/documents');
+  static Future<Map<String, dynamic>> currency() => _req('GET', '/currency');
+  static Future<Map<String, dynamic>> didox() => _req('GET', '/didox');
+  static Future<Map<String, dynamic>> counterparty() => _req('GET', '/counterparty');
+  static Future<Map<String, dynamic>> enforcement() => _req('GET', '/enforcement');
+  static Future<Map<String, dynamic>> reports() => _req('GET', '/reports');
+  static Future<Map<String, dynamic>> employees() => _req('GET', '/employees');
+  static Future<Map<String, dynamic>> team() => _req('GET', '/team');
+  static Future<Map<String, dynamic>> auditReport() => _req('GET', '/audit-report');
+  static Future<Map<String, dynamic>> calendar({int? year}) => _req('GET', year == null ? '/calendar' : '/calendar?year=$year');
   static Future<Map<String, dynamic>> checkout({
     required String plan, required String cycle, required String provider, int? organizationId,
   }) => _req('POST', '/checkout', body: {
