@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/lock.dart';
 import 'home_shell.dart';
+import 'pin_screen.dart';
 
 /// SMS-kod orqali kirish (2FA). `expired: true` — sessiya harakatsizlikdan tugagan.
 class LoginScreen extends StatefulWidget {
@@ -34,8 +36,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (r['ok'] == true && mounted) {
       // Autofill sessiyasini yopamiz (OTP muvaffaqiyatli ishlatildi).
       TextInput.finishAutofillContext();
+      final hasPin = await Lock.hasPin();
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeShell()), (_) => false);
+        MaterialPageRoute(builder: (_) => hasPin ? const HomeShell() : const PinScreen(mode: 'set')),
+        (_) => false);
     } else {
       setState(() => _err = r['message'] ?? 'Kod noto\'g\'ri');
     }

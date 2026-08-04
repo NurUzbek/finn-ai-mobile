@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/api.dart';
 import 'services/idle_guard.dart';
 import 'services/theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/lock.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_shell.dart';
+import 'screens/pin_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,22 +75,49 @@ class FinnApp extends StatefulWidget {
 }
 
 class _FinnAppState extends State<FinnApp> {
-  bool? _loggedIn;
+  Widget? _start;
 
   @override
   void initState() {
     super.initState();
     ThemeState.i.load();
-    Api.token.then((t) => setState(() => _loggedIn = t != null));
+    _decideStart();
   }
 
-  /// TZ: 3 daqiqa harakatsizlikda sessiya tugatiladi va qayta autentifikatsiya so'raladi.
+  /// Boshlang'ich ekran:
+  ///  • Yangi o'rnatish → SMS login (iOS keychain saqlab qolgan token tozalanadi)
+  ///  • Avval kirgan + PIN bor → PIN/biometrika unlock
+  ///  • Token bor, PIN yo'q → to'g'ridan-to'g'ri HomeShell
+  Future<void> _decideStart() async {
+    final sp = await SharedPreferences.getInstance();
+    final fresh = !(sp.getBool('installed') ?? false);
+    if (fresh) {
+      await Api.clearToken();
+      await Lock.clear();
+      await sp.setBool('installed', true);
+      if (mounted) setState(() => _start = const LoginScreen());
+      return;
+    }
+    final token = await Api.token;
+    if (token == null) {
+      if (mounted) setState(() => _start = const LoginScreen());
+    } else if (await Lock.hasPin()) {
+      if (mounted) setState(() => _start = const PinScreen(mode: 'unlock'));
+    } else {
+      if (mounted) setState(() => _start = const HomeShell());
+    }
+  }
+
+  /// TZ: 3 daqiqa harakatsizlikda qulflanadi. PIN bo'lsa — PIN unlock, aks holda SMS.
   Future<void> _forceLogout() async {
-    await Api.clearToken();
-    navKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen(expired: true)),
-      (_) => false,
-    );
+    if (await Lock.hasPin()) {
+      navKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const PinScreen(mode: 'unlock')), (_) => false);
+    } else {
+      await Api.clearToken();
+      navKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen(expired: true)), (_) => false);
+    }
   }
 
   ThemeData _build(Brightness b) {
@@ -158,12 +188,12 @@ class _FinnAppState extends State<FinnApp> {
         theme: _build(Brightness.light),
         darkTheme: _build(Brightness.dark),
         themeMode: ThemeState.i.mode,
-        home: _loggedIn == null
+        home: _start == null
             ? const Scaffold(body: Center(child: CircularProgressIndicator(color: C.cyan)))
             : IdleGuard(
                 timeout: const Duration(minutes: 3),
                 onTimeout: _forceLogout,
-                child: _loggedIn! ? const HomeShell() : const LoginScreen(),
+                child: _start!,
               ),
       ),
     );
