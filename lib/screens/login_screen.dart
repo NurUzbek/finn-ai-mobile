@@ -378,8 +378,9 @@ class _MagneticState extends State<_Magnetic> {
       );
 }
 
-/// OneID orqali kirish — WebView'da davlat OneID oqimi, so'ng mobil token
-/// olib ilovaga qaytadi (/m-token). Parol faqat id.egov.uz'ga yuboriladi.
+/// OneID orqali kirish — davlat autentifikatsiyasi. "Brauzer" ko'rinishisiz,
+/// seamless (brendli loading + toza ekran). Parol faqat id.egov.uz'ga yuboriladi
+/// (bu qonuniy talab — parol hech qachon Finn serveriga tegmaydi).
 class OneIdLoginPage extends StatefulWidget {
   const OneIdLoginPage({super.key});
   @override
@@ -388,16 +389,27 @@ class OneIdLoginPage extends StatefulWidget {
 
 class _OneIdLoginPageState extends State<OneIdLoginPage> {
   WebViewController? _c;
-  int _p = 0;
-  bool _fetching = false;
+  bool _ready = false;   // davlat login sahifasi ko'rindi — overlay olib tashlanadi
+  bool _finishing = false; // token olinmoqda — brendli overlay
+  String? _error;
+  Timer? _watchdog;
 
   @override
   void initState() {
     super.initState();
+    _build();
+  }
+
+  void _build() {
+    _watchdog?.cancel();
+    // 45s ichida hech narsa yuklanmasa — muzlab qolmasin, xato ko'rsatamiz
+    _watchdog = Timer(const Duration(seconds: 45), () {
+      if (mounted && !_ready && !_finishing) setState(() => _error = 'Ulanish sekin — internetni tekshiring');
+    });
     _c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
       ..setNavigationDelegate(NavigationDelegate(
-        onProgress: (p) => mounted ? setState(() => _p = p) : null,
         onPageFinished: (u) async {
           if (u.contains('/m-token')) {
             try {
@@ -405,11 +417,24 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
               final m = RegExp(r'"token"\s*:\s*"([^"]+)"').firstMatch(res.toString());
               if (m != null && mounted) { Navigator.of(context).pop(m.group(1)); return; }
             } catch (_) {}
-            if (mounted) Navigator.of(context).pop();
-          } else if (!_fetching && (u.contains('/dashboard') || u.contains('/subscription') || u.contains('/profile') || RegExp(r'finn\.uz/?$').hasMatch(u))) {
+            if (mounted) setState(() => _error = 'Kirish yakunlanmadi — qayta urining');
+            return;
+          }
+          if (u.contains('/dashboard') || u.contains('/subscription') || u.contains('/profile') || RegExp(r'finn\.uz/?$').hasMatch(u)) {
             // Veb-sessiya autentifikatsiya bo'ldi — mobil token olamiz
-            _fetching = true;
-            _c!.loadRequest(Uri.parse('https://finn.uz/m-token'));
+            if (!_finishing) {
+              _finishing = true;
+              if (mounted) setState(() {});
+              _c!.loadRequest(Uri.parse('https://finn.uz/m-token'));
+            }
+            return;
+          }
+          // Davlat login/parol sahifasi ko'rindi — brendli overlay'ni olib tashlaymiz
+          if (!_ready && !_finishing && mounted) setState(() => _ready = true);
+        },
+        onWebResourceError: (e) {
+          if (e.isForMainFrame == true && mounted && !_ready) {
+            setState(() => _error = 'Sahifa ochilmadi — qayta urining');
           }
         },
       ))
@@ -417,19 +442,73 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: C.bg(context),
-        appBar: AppBar(
-          backgroundColor: C.bg(context), elevation: 0,
-          leading: IconButton(icon: Icon(Icons.close_rounded, color: C.text(context)), onPressed: () => Navigator.of(context).pop()),
-          title: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.lock_rounded, size: 14, color: C.green),
+  void dispose() { _watchdog?.cancel(); super.dispose(); }
+
+  void _retry() { setState(() { _ready = false; _finishing = false; _error = null; }); _build(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final showOverlay = !_ready || _finishing || _error != null;
+    return Scaffold(
+      backgroundColor: C.bg(context),
+      body: SafeArea(
+        child: Stack(children: [
+          if (_c != null) Positioned.fill(child: WebViewWidget(controller: _c!)),
+          // Yopish tugmasi — faqat davlat sahifasi ko'ringanda (overlay ustida kerak emas)
+          if (_ready && !_finishing && _error == null)
+            Positioned(top: 8, right: 8, child: _Magnetic(child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: C.card(context), shape: BoxShape.circle, border: Border.all(color: C.border(context, .12)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .12), blurRadius: 12)]),
+                child: Icon(Icons.close_rounded, size: 20, color: C.text(context)),
+              ),
+            ))),
+          if (showOverlay) Positioned.fill(child: _overlay(context)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _overlay(BuildContext context) => Container(
+        color: C.bg(context),
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Spacer(),
+          // OneID belgisi (oq quti + ko'k logo)
+          Container(
+            width: 88, height: 62,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: _oneidBlue.withValues(alpha: .18), blurRadius: 26, offset: const Offset(0, 10))]),
+            padding: const EdgeInsets.all(14),
+            child: Image.asset('assets/oneid_blue.png', fit: BoxFit.contain),
+          ),
+          const SizedBox(height: 28),
+          if (_error != null) ...[
+            Text('Ulanmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.text(context))),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.5, color: C.muted(context, .65))),
+            const SizedBox(height: 24),
+            SizedBox(width: 200, child: _Magnetic(child: DecoratedBox(
+              decoration: BoxDecoration(gradient: _grad, borderRadius: BorderRadius.circular(14)),
+              child: SizedBox(height: 50, child: TextButton(onPressed: _retry, child: const Text('Qayta urinish', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)))),
+            ))),
+            const SizedBox(height: 8),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Bekor qilish', style: TextStyle(color: C.muted(context, .6), fontSize: 13.5, fontWeight: FontWeight.w600))),
+          ] else ...[
+            Text(_finishing ? 'Kirilmoqda…' : 'OneID orqali xavfsiz kirish',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.text(context))),
+            const SizedBox(height: 10),
+            Text(_finishing ? 'Tashkilotlaringiz aniqlanmoqda' : 'Davlat identifikatsiya tizimiga ulanmoqda',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, height: 1.5, color: C.muted(context, .6))),
+            const SizedBox(height: 26),
+            SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2.6, valueColor: const AlwaysStoppedAnimation(_blue), backgroundColor: C.border(context, .1))),
+          ],
+          const Spacer(),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.lock_rounded, size: 13, color: C.green),
             const SizedBox(width: 6),
-            const Text('id.egov.uz', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text('Parol faqat id.egov.uz\'ga yuboriladi', style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
           ]),
-          centerTitle: true,
-          bottom: _p < 100 ? PreferredSize(preferredSize: const Size.fromHeight(2), child: LinearProgressIndicator(value: _p / 100, minHeight: 2, backgroundColor: Colors.transparent)) : null,
-        ),
-        body: _c == null ? const SizedBox() : WebViewWidget(controller: _c!),
+        ]),
       );
 }
