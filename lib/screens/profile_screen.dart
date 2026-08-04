@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/lock.dart';
 import '../services/theme.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
+import 'pin_screen.dart';
 import 'subscription_screen.dart';
 
-/// Profil + sozlamalar (mavzu, til) + xavfsizlik ma'lumotlari (TZ: qurilma, sessiya).
+/// Profil — hisob, tarif va sozlamalar (mavzu, til, xavfsizlik).
+/// Dizayn: finn-app-screens.html #v-profil. Ma'lumot: `Api.me()`.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
   @override
@@ -21,10 +24,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const _locales = {'uz': "O'zbekcha", 'ru': 'Русский', 'en': 'English'};
   String _locale = 'uz';
 
+  bool _push = true; // faqat lokal — endpoint yo'q
+  bool _bioOn = false;
+  bool _bioAvail = false;
+
   @override
   void initState() {
     super.initState();
     _loadLocale();
+    _loadLock();
   }
 
   Future<void> _loadLocale() async {
@@ -34,6 +42,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _locale = v);
     }
   }
+
+  Future<void> _loadLock() async {
+    final avail = await Lock.bioAvailable();
+    final on = await Lock.bioOn();
+    if (mounted) setState(() { _bioAvail = avail; _bioOn = on && avail; });
+  }
+
+  // ── Xatti-harakatlar ─────────────────────────────────────────────
+
+  void _toast(String m) => ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _pickLocale() async {
     final picked = await showModalBottomSheet<String>(
@@ -51,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
             child: Row(children: [
-              const Icon(Icons.language, size: 18, color: C.cyan),
+              const Icon(Icons.language, size: 18, color: C.blue),
               const SizedBox(width: 10),
               Text('Ilova tili', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: C.text(c))),
             ]),
@@ -71,11 +91,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final sp = await SharedPreferences.getInstance();
     await sp.setString('finn_locale', picked);
     if (!mounted) return;
-    // Avvalgi snackbar'ni tozalaymiz — takrorlanib/yig'ilib qolmasligi uchun.
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text('Til saqlandi: ${_locales[picked]}')));
+    _toast('Til saqlandi: ${_locales[picked]}');
   }
+
+  Future<void> _toggleBio(bool v) async {
+    if (v) {
+      if (!_bioAvail) { _toast('Qurilmada biometrika mavjud emas'); return; }
+      // PIN bo'lmasa — avval o'rnatamiz (PinScreen 'set' o'zi biometrikani so'raydi).
+      if (!await Lock.hasPin()) {
+        await Lock.setBio(true);
+        if (!mounted) return;
+        setState(() => _bioOn = true);
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PinScreen(mode: 'set')));
+        return;
+      }
+      await Lock.setBio(true);
+    } else {
+      await Lock.setBio(false);
+    }
+    if (mounted) setState(() => _bioOn = v);
+  }
+
+  void _changePin() => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PinScreen(mode: 'set')));
+
+  void _openDevices(int count) => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _DevicesScreen(count: count)));
 
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
@@ -97,6 +139,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
   }
 
+  // ── Yordamchilar ─────────────────────────────────────────────────
+
+  static String _fmtPhone(String raw) {
+    final d = raw.replaceAll(RegExp(r'\D'), '');
+    if (d.length == 12) {
+      return '+${d.substring(0, 3)} ${d.substring(3, 5)} ${d.substring(5, 8)} ${d.substring(8, 10)} ${d.substring(10, 12)}';
+    }
+    return raw.startsWith('+') ? raw : '+$raw';
+  }
+
+  static String _mono(String name) {
+    final t = name.trim();
+    if (t.isEmpty) return 'F';
+    if (RegExp(r'[0-9+]').hasMatch(t[0])) return 'F';
+    return t[0].toUpperCase();
+  }
+
+  // ── Build ────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) => SafeArea(
         child: Column(children: [
@@ -106,71 +167,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
               future: _f,
               onRefresh: _refresh,
               builder: (d) {
-                final u = d['user'] as Map<String, dynamic>;
-                final initials = (u['name'] as String).trim().isEmpty
-                    ? '?' : (u['name'] as String).trim().substring(0, 1).toUpperCase();
+                final u = d['user'] as Map<String, dynamic>? ?? const {};
+                final plan = d['plan'] as Map<String, dynamic>? ?? const {};
+                final features = plan['features'] as Map<String, dynamic>? ?? const {};
+
+                final name = (u['name'] ?? '').toString();
+                final phone = _fmtPhone((u['phone'] ?? '').toString());
+                final email = (u['email'] ?? '—').toString();
+                final orgsCount = u['orgs_count'] ?? 0;
+                final devices = (u['devices_count'] is int) ? u['devices_count'] as int : 1;
+
+                final slug = (plan['slug'] ?? '').toString().toLowerCase();
+                final isTrial = plan['is_trial'] == true;
+                final rawName = (plan['name'] ?? '').toString();
+                final planTitle = isTrial
+                    ? 'Sinov rejimi'
+                    : (slug == 'free' || rawName.toUpperCase() == 'FREE')
+                        ? 'Bepul rejim'
+                        : (rawName.isEmpty ? 'Joriy reja' : rawName);
+                final orgsLimit = features['orgs_limit'];
+                final planSub = orgsLimit == null
+                    ? '$orgsCount ta firma kuzatilmoqda'
+                    : '$orgsLimit tadan $orgsCount ta firma kuzatilmoqda';
 
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                   children: [
-                    // ── Profil kartasi ──
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: _cardBox(context),
-                      child: Row(children: [
-                        Container(
-                          width: 62, height: 62,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [C.blue, C.cyan]),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Center(child: Text(initials,
-                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white))),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(u['name'], style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: C.text(context))),
-                          const SizedBox(height: 3),
-                          Text('+${u['phone']}', style: TextStyle(fontSize: 12.5, color: C.muted(context, .5))),
-                          const SizedBox(height: 2),
-                          Text('${u['orgs_count']} tashkilot', style: const TextStyle(fontSize: 11.5, color: C.cyan)),
-                        ])),
-                      ]),
-                    ),
-                    const SizedBox(height: 18),
+                    // ── "Men" kartasi ──
+                    StaggerIn(index: 0, child: _meCard(context, name, phone)),
+                    const SizedBox(height: 11),
 
-                    // ── SOZLAMALAR ──
-                    _section('SOZLAMALAR'),
-                    _themeTile(context),
-                    _tile(context, Icons.language, 'Til', _locales[_locale] ?? "O'zbekcha", C.cyan,
-                        onTap: _pickLocale),
+                    // ── Tarif kartasi ──
+                    StaggerIn(index: 1, child: _planCard(context, planTitle, planSub)),
 
-                    const SizedBox(height: 14),
-                    _section('XAVFSIZLIK'),
-                    _tile(context, Icons.devices_other, 'Aktiv qurilmalar', '${u['devices_count']} ta faol', C.sky),
-                    _tile(context, Icons.timer_outlined, 'Sessiya muddati', '3 daqiqa harakatsizlik', C.amber),
-                    _tile(context, Icons.sms_outlined, 'Yangi qurilma ogohlantirishi', 'SMS yoqilgan', C.green),
+                    // ── Sozlamalar ──
+                    StaggerIn(index: 2, child: _eyebrow(context, 'Sozlamalar')),
+                    StaggerIn(index: 2, child: _group(context, [
+                      _themeRow(context),
+                      _row(context,
+                          icon: Icons.language, color: C.blue,
+                          title: 'Til', sub: _locales[_locale] ?? "O'zbekcha",
+                          onTap: _pickLocale),
+                      _switchRow(context,
+                          icon: Icons.notifications_none_rounded, color: C.green,
+                          title: 'Push bildirishnoma', sub: "To'lov va risk haqida",
+                          value: _push, onChanged: (v) => setState(() => _push = v)),
+                      _row(context,
+                          icon: Icons.grid_view_rounded, color: C.brand,
+                          title: 'Barcha modullar', sub: '12 ta bo\'lim',
+                          onTap: () => homeScaffoldKey.currentState?.openDrawer()),
+                    ])),
 
-                    const SizedBox(height: 14),
-                    _section('HISOB'),
-                    _tile(context, Icons.email_outlined, 'Email', u['email'] ?? '—', C.violet),
-                    _tile(context, Icons.workspace_premium_outlined, 'Tarif', 'Ko\'rish va to\'lash', C.amber,
-                        onTap: () => openSubscription(context)),
+                    // ── Xavfsizlik ──
+                    StaggerIn(index: 3, child: _eyebrow(context, 'Xavfsizlik')),
+                    StaggerIn(index: 3, child: _group(context, [
+                      _switchRow(context,
+                          icon: Icons.face_retouching_natural, color: C.blue,
+                          title: 'Face ID', sub: 'Ilovani ochishda',
+                          value: _bioOn, onChanged: _toggleBio),
+                      _row(context,
+                          icon: Icons.lock_outline_rounded, color: C.violet,
+                          title: 'Parol kodini o\'zgartirish', sub: '4 xonali kod',
+                          onTap: _changePin),
+                      _row(context,
+                          icon: Icons.devices_rounded, color: C.amber,
+                          title: 'Aktiv qurilmalar', sub: '$devices ta faol sessiya',
+                          onTap: () => _openDevices(devices)),
+                      _row(context,
+                          icon: Icons.timer_outlined, color: C.muted(context, .55),
+                          title: 'Sessiya muddati', sub: '3 daqiqa harakatsizlik',
+                          onTap: () => _toast('Sessiya 3 daqiqa harakatsizlikda yopiladi')),
+                    ])),
+
+                    // ── Hisob ──
+                    StaggerIn(index: 4, child: _eyebrow(context, 'Hisob')),
+                    StaggerIn(index: 4, child: _group(context, [
+                      _row(context,
+                          icon: Icons.mail_outline_rounded, color: C.blue,
+                          title: 'Email', sub: email),
+                      _row(context,
+                          icon: Icons.logout_rounded, color: C.red,
+                          title: 'Chiqish', danger: true, onTap: _logout),
+                    ])),
 
                     const SizedBox(height: 20),
-                    SizedBox(
-                      height: 50,
-                      child: OutlinedButton.icon(
-                        onPressed: _logout,
-                        icon: const Icon(Icons.logout, size: 18, color: C.red),
-                        label: const Text('Chiqish', style: TextStyle(color: C.red, fontWeight: FontWeight.w700)),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: C.red.withValues(alpha: .35)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     Center(child: Text('FINN AI v1.0.0 · ONEDESK GROUP MChJ',
                         style: TextStyle(fontSize: 10.5, color: C.muted(context, .3)))),
                   ],
@@ -181,61 +261,179 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ]),
       );
 
-  BoxDecoration _cardBox(BuildContext context, {double radius = 18}) => BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: C.border(context, .06)),
-        boxShadow: C.isDark(context)
-            ? null
-            : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 12, offset: const Offset(0, 4))],
+  // ── Bo'laklar ────────────────────────────────────────────────────
+
+  Widget _meCard(BuildContext c, String name, String phone) => Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: _cardBox(c, radius: 24),
+        child: Row(children: [
+          Container(
+            width: 56, height: 56,
+            decoration: BoxDecoration(
+              gradient: C.grad,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Center(child: Text(_mono(name),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white))),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name.isEmpty ? 'Foydalanuvchi' : name,
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: C.text(c))),
+            const SizedBox(height: 3),
+            Text(phone, style: TextStyle(fontSize: 12.5, color: C.muted(c, .5))),
+          ])),
+          Icon(Icons.chevron_right, size: 20, color: C.muted(c, .3)),
+        ]),
       );
 
-  Widget _section(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 0, 8),
-        child: Builder(builder: (c) => Text(t, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900,
-            letterSpacing: 1.1, color: C.muted(c, .4)))),
+  Widget _planCard(BuildContext c, String title, String sub) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: _cardBox(c, radius: 20),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: C.tint(c, C.amber), borderRadius: BorderRadius.circular(13)),
+            child: Icon(Icons.star_rounded, size: 22, color: C.onAmb(c)),
+          ),
+          const SizedBox(width: 13),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: C.text(c))),
+            const SizedBox(height: 2),
+            Text(sub, style: TextStyle(fontSize: 12, color: C.muted(c, .5))),
+          ])),
+          GestureDetector(
+            onTap: () => Navigator.of(c).push(
+                MaterialPageRoute(builder: (_) => const SubscriptionScreen())),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(gradient: C.grad, borderRadius: BorderRadius.circular(30)),
+              child: const Text('Kengaytirish',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+            ),
+          ),
+        ]),
       );
 
-  /// Mavzu almashtirgich — yorug'/qorong'i segmentli tugma.
-  Widget _themeTile(BuildContext context) {
-    final dark = ThemeState.i.isDark;
+  Widget _eyebrow(BuildContext c, String t) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 20, 4, 9),
+        child: Row(children: [
+          Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.2, color: C.muted(c, .5))),
+          const SizedBox(width: 10),
+          Expanded(child: Container(height: 1, color: C.border(c, .06))),
+        ]),
+      );
+
+  /// Bo'linadigan satrlardan iborat yumaloq guruh kartasi.
+  Widget _group(BuildContext c, List<Widget> rows) {
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      children.add(rows[i]);
+      if (i < rows.length - 1) {
+        children.add(Divider(height: 1, thickness: 1, indent: 62, color: C.border(c, .06)));
+      }
+    }
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(13),
-      decoration: _cardBox(context, radius: 14),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(color: C.violet.withValues(alpha: .13), borderRadius: BorderRadius.circular(10)),
-          child: Icon(dark ? Icons.dark_mode : Icons.light_mode, size: 16, color: C.violet),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Mavzu', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: C.text(context))),
-          const SizedBox(height: 2),
-          Text(dark ? 'Qorong\'i rejim' : 'Yorug\' rejim',
-              style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
-        ])),
-        _segment(context),
-      ]),
+      clipBehavior: Clip.antiAlias,
+      decoration: _cardBox(c, radius: 24),
+      child: Column(children: children),
     );
   }
 
-  Widget _segment(BuildContext context) {
+  Widget _iconBox(BuildContext c, IconData i, Color color) => Container(
+        width: 34, height: 34,
+        decoration: BoxDecoration(color: color.withValues(alpha: .13), borderRadius: BorderRadius.circular(11)),
+        child: Icon(i, size: 17, color: color),
+      );
+
+  /// Navigatsiya / oddiy satr (o'ng tomonda chevron yoki maxsus trailing).
+  Widget _row(BuildContext c,
+      {required IconData icon,
+      required Color color,
+      required String title,
+      String? sub,
+      Widget? trailing,
+      bool danger = false,
+      VoidCallback? onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(children: [
+            _iconBox(c, icon, color),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600,
+                  color: danger ? C.red : C.text(c))),
+              if (sub != null) ...[
+                const SizedBox(height: 2),
+                Text(sub, style: TextStyle(fontSize: 11.5, color: C.muted(c, .45))),
+              ],
+            ])),
+            if (trailing != null)
+              trailing
+            else if (onTap != null && !danger)
+              Icon(Icons.chevron_right, size: 19, color: C.muted(c, .3)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Toggle (switch) bilan satr.
+  Widget _switchRow(BuildContext c,
+      {required IconData icon,
+      required Color color,
+      required String title,
+      required String sub,
+      required bool value,
+      required ValueChanged<bool> onChanged}) {
+    return _row(c, icon: icon, color: color, title: title, sub: sub,
+        trailing: _Switch(value: value, onChanged: onChanged));
+  }
+
+  /// Mavzu satri — yorug'/qorong'i segmentli almashtirgich.
+  Widget _themeRow(BuildContext c) {
     final dark = ThemeState.i.isDark;
+    return _row(c,
+        icon: Icons.contrast_rounded, color: C.violet,
+        title: 'Mavzu', sub: dark ? "Qorong'i rejim" : "Yorug' rejim",
+        trailing: _Segment(dark: dark));
+  }
+
+  BoxDecoration _cardBox(BuildContext c, {double radius = 20}) => BoxDecoration(
+        color: C.card(c),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: C.border(c, .06)),
+        boxShadow: C.isDark(c) ? null : C.shadow(c),
+      );
+}
+
+/// Yorug'/qorong'i segmentli almashtirgich (sirg'aluvchi gradient tugma).
+class _Segment extends StatelessWidget {
+  final bool dark;
+  const _Segment({required this.dark});
+
+  @override
+  Widget build(BuildContext context) {
     Widget opt(bool isDark, IconData icon) {
       final active = dark == isDark;
       return GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => ThemeState.i.setMode(isDark ? ThemeMode.dark : ThemeMode.light),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           decoration: BoxDecoration(
-            gradient: active ? const LinearGradient(colors: [C.blue, C.cyan]) : null,
+            gradient: active ? C.grad : null,
             borderRadius: BorderRadius.circular(9),
           ),
-          child: Icon(icon, size: 16,
-              color: active ? Colors.white : C.muted(context, .5)),
+          child: Icon(icon, size: 15, color: active ? Colors.white : C.muted(context, .5)),
         ),
       );
     }
@@ -243,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: C.fill(context, .05),
+        color: C.fill(context, .08),
         borderRadius: BorderRadius.circular(11),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -253,35 +451,108 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ]),
     );
   }
+}
 
-  Widget _tile(BuildContext context, IconData i, String title, String sub, Color c, {VoidCallback? onTap}) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: _cardBox(context, radius: 14),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(13),
-              child: Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(color: c.withValues(alpha: .13), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(i, size: 16, color: c),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: C.text(context))),
-                  const SizedBox(height: 2),
-                  Text(sub, style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
-                ])),
-                if (onTap != null)
-                  Icon(Icons.chevron_right, size: 18, color: C.muted(context, .3)),
-              ]),
+/// Maxsus switch — pill track + sirg'aluvchi knob (dizaynga mos).
+class _Switch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _Switch({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: 46, height: 28,
+        decoration: BoxDecoration(
+          gradient: value ? C.grad : null,
+          color: value ? null : C.fill(context, .12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: 22, height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .15), blurRadius: 4, offset: const Offset(0, 1))],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Yengil "Aktiv qurilmalar" o'rin egallovchi ekrani (to'liq API hali yo'q).
+class _DevicesScreen extends StatelessWidget {
+  final int count;
+  const _DevicesScreen({required this.count});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: C.bg(context),
+        body: SafeArea(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 20, 8),
+              child: Row(children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: C.text(context)),
+                ),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Aktiv qurilmalar',
+                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, letterSpacing: -0.3, color: C.text(context))),
+                  Text('$count ta faol sessiya', style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+                ])),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: C.card(context),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: C.border(context, .06)),
+                  boxShadow: C.isDark(context) ? null : C.shadow(context),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(13)),
+                    child: Icon(Icons.smartphone_rounded, size: 20, color: C.onGrn(context)),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Bu qurilma', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.text(context))),
+                    const SizedBox(height: 2),
+                    Text('Hozir faol · joriy sessiya', style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
+                  ])),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(20)),
+                    child: Text('Faol', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: C.onGrn(context))),
+                  ),
+                ]),
+              ),
+            ),
+            const Spacer(),
+            Center(child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('Boshqa qurilmalar ro\'yxati tez orada',
+                  style: TextStyle(fontSize: 12, color: C.muted(context, .4))),
+            )),
+          ]),
         ),
       );
 }

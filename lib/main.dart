@@ -64,11 +64,36 @@ class C {
   /// Kirish maydoni / yumshoq to'ldirish foni.
   static Color fill(BuildContext c, [double a = .04]) =>
       isDark(c) ? Colors.white.withValues(alpha: a) : inkLight.withValues(alpha: a);
+
+  // ── Dizayn tizimi (finn-app-screens.html) ──
+  /// Brend akssent (dizayn) — yorqinroq ko'k.
+  static const brand = Color(0xFF246BFD);
+  static const brand2 = Color(0xFF25C4E8);
+  /// Asosiy brend gradienti (tugma/karta/nav).
+  static const grad = LinearGradient(
+    begin: Alignment.topLeft, end: Alignment.bottomRight,
+    colors: [Color(0xFF1745C9), Color(0xFF2A6DF5), Color(0xFF25C4E8)],
+  );
+  /// Tinted fon — accent rang ustida yumshoq to'ldirish (pill/karta foni).
+  static Color tint(BuildContext c, Color base, {double light = .09, double dark = .15}) =>
+      base.withValues(alpha: isDark(c) ? dark : light);
+  /// Tinted fon ustidagi o'qiladigan matn rangi (mavzuga moslashgan).
+  static Color onRed(BuildContext c) => isDark(c) ? const Color(0xFFFF7A87) : const Color(0xFFB3222F);
+  static Color onAmb(BuildContext c) => isDark(c) ? const Color(0xFFF0A94E) : const Color(0xFFB0740F);
+  static Color onGrn(BuildContext c) => isDark(c) ? const Color(0xFF3DD9A4) : const Color(0xFF0E9067);
+  static Color onPur(BuildContext c) => isDark(c) ? const Color(0xFFB694FF) : const Color(0xFF6D28D9);
+  /// Yumshoq soya (tinted, chegara o'rniga).
+  static List<BoxShadow> shadow(BuildContext c, {double y = 8, double blur = 24, double a = .045}) => [
+        BoxShadow(color: (isDark(c) ? Colors.black : const Color(0xFF0A1027)).withValues(alpha: isDark(c) ? a * 5 : a), blurRadius: blur, offset: Offset(0, y)),
+      ];
 }
 
 final navKey = GlobalKey<NavigatorState>();
 /// HomeShell Scaffold kaliti — ichki ekranlardan drawer'ni ochish uchun.
 final homeScaffoldKey = GlobalKey<ScaffoldState>();
+/// Asosiy tab indeksini boshqarish — dashboard tugmalari (Soliq/Firmalar/…)
+/// pastki tabga o'tishi uchun. HomeShell shu qiymatni kuzatadi.
+final homeTab = ValueNotifier<int>(0);
 
 class FinnApp extends StatefulWidget {
   const FinnApp({super.key});

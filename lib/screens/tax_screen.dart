@@ -3,7 +3,7 @@ import '../main.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
 
-/// "Monitoring" moduli — soliq qarzdorligi, kechikkan kunlar, penya (TZ 2-jadval).
+/// "Soliq qarzi" moduli — soliq qarzdorligi, kechikkan kunlar, real vaqtda penya.
 class TaxScreen extends StatefulWidget {
   const TaxScreen({super.key});
   @override
@@ -17,97 +17,172 @@ class _TaxScreenState extends State<TaxScreen> {
   @override
   Widget build(BuildContext context) => SafeArea(
         child: Column(children: [
-          const ScreenHeader(title: 'Soliq qarzdorligi', icon: Icons.account_balance, subtitle: 'Penya real vaqtda hisoblanadi'),
+          const ScreenHeader(
+            title: 'Soliq qarzi',
+            icon: Icons.account_balance_rounded,
+            subtitle: 'Penya real vaqtda hisoblanadi',
+          ),
           Expanded(
             child: Loader(
               future: _f,
               onRefresh: _refresh,
               builder: (d) {
                 final debts = (d['debts'] as List).cast<Map<String, dynamic>>();
-                final rate = d['rate'];
                 if (debts.isEmpty) {
-                  return const EmptyState(icon: Icons.verified_rounded, text: 'Qarzdorlik yo\'q — hammasi joyida');
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 80),
+                      EmptyState(
+                        icon: Icons.verified_rounded,
+                        text: 'Soliq qarzi yo\'q — hammasi toza',
+                        color: C.green,
+                      ),
+                    ],
+                  );
                 }
+
                 final total = debts.fold<double>(0, (a, b) => a + (b['amount'] as num).toDouble());
                 final pen = debts.fold<double>(0, (a, b) => a + (b['penalty'] as num).toDouble());
+                final daily = debts.fold<double>(0, (a, b) => a + (b['daily'] as num).toDouble());
 
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [C.red.withValues(alpha: .14), C.amber.withValues(alpha: .07)]),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: C.red.withValues(alpha: .25)),
+                    // ── Umumiy qarz | Jami penya ──
+                    StaggerIn(
+                      index: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: C.tint(context, C.red),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(children: [
+                          Expanded(child: _summary(context, 'Umumiy qarz', money(total), C.red, C.onRed(context))),
+                          Container(width: 1, height: 44, color: C.red.withValues(alpha: .2)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _summary(context, 'Jami penya', money(pen), C.amber, C.onAmb(context))),
+                        ]),
                       ),
-                      child: Row(children: [
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Umumiy qarz', style: TextStyle(fontSize: 11.5, color: C.muted(context, .55))),
-                          const SizedBox(height: 4),
-                          Text(money(total), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: C.red)),
-                        ])),
-                        Container(width: 1, height: 40, color: C.muted(context, .12)),
-                        Expanded(child: Padding(
-                          padding: const EdgeInsets.only(left: 14),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Penya (MB $rate%)', style: TextStyle(fontSize: 11.5, color: C.muted(context, .55))),
-                            const SizedBox(height: 4),
-                            Text(money(pen), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: C.amber)),
-                          ]),
-                        )),
-                      ]),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 10),
 
-                    ...debts.map((t) {
-                      final od = t['days_overdue'] as int;
-                      final c = od > 30 ? C.red : (od > 0 ? C.amber : C.cyan);
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
+                    // ── Har kuni qo'shilmoqda ──
+                    StaggerIn(
+                      index: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
                         decoration: BoxDecoration(
                           color: C.card(context),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: c.withValues(alpha: .22)),
-                          boxShadow: C.isDark(context)
-                              ? null
-                              : [BoxShadow(color: C.inkLight.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 3))],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: C.border(context)),
+                          boxShadow: C.shadow(context),
                         ),
-                        child: Column(children: [
-                          Row(children: [
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(t['tax_type'] ?? '—', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: C.text(context))),
-                              const SizedBox(height: 2),
-                              Text(t['org'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .42))),
-                            ])),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                              decoration: BoxDecoration(color: c.withValues(alpha: .14), borderRadius: BorderRadius.circular(20)),
-                              child: Text(od > 0 ? '$od kun' : 'muddatida',
-                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: c)),
-                            ),
-                          ]),
-                          const SizedBox(height: 12),
-                          Row(children: [
-                            _mini(context, 'Qarz', money(t['amount']), C.text(context)),
-                            _mini(context, 'Penya', money(t['penalty']), C.amber),
-                            _mini(context, 'Kuniga', '+${money(t['daily'])}', C.red),
-                          ]),
-                          const SizedBox(height: 8),
-                          Row(children: [
-                            Icon(Icons.event, size: 12, color: C.muted(context, .35)),
-                            const SizedBox(width: 5),
-                            Text('Muddat: ${t['due_date'] ?? '—'}',
-                                style: TextStyle(fontSize: 11, color: C.muted(context, .4))),
-                          ]),
+                        child: Row(children: [
+                          Container(width: 7, height: 7,
+                              decoration: const BoxDecoration(color: C.red, shape: BoxShape.circle)),
+                          const SizedBox(width: 9),
+                          Text('Har kuni qo\'shilmoqda',
+                              style: TextStyle(fontSize: 13, color: C.muted(context, .7))),
+                          const Spacer(),
+                          Text('+${money(daily)}',
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: C.red)),
+                          const SizedBox(width: 4),
+                          Text('so\'m', style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
                         ]),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Eyebrow ──
+                    Row(children: [
+                      Text('MUDDAT BO\'YICHA',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: C.muted(context, .4))),
+                      const SizedBox(width: 10),
+                      Expanded(child: Container(height: 1, color: C.border(context))),
+                      const SizedBox(width: 10),
+                      const Text('Saralash',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700, color: C.brand)),
+                    ]),
+                    const SizedBox(height: 12),
+
+                    // ── Soliq kartalari ──
+                    ...debts.asMap().entries.map((e) {
+                      final t = e.value;
+                      final od = (t['days_overdue'] as num).toInt();
+                      final isHot = od > 60;
+                      final pillColor = isHot ? C.red : C.amber;
+                      final pillTxt = isHot ? C.onRed(context) : C.onAmb(context);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: StaggerIn(
+                          index: e.key + 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: C.card(context),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: C.border(context)),
+                              boxShadow: C.shadow(context),
+                            ),
+                            child: Column(children: [
+                              // header
+                              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(t['tax_type']?.toString() ?? '—',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.2,
+                                            color: C.text(context))),
+                                    const SizedBox(height: 3),
+                                    Text(t['org']?.toString() ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
+                                  ]),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: C.tint(context, pillColor),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text('$od kun',
+                                      style: TextStyle(
+                                          fontSize: 11.5, fontWeight: FontWeight.w800, color: pillTxt)),
+                                ),
+                              ]),
+                              const SizedBox(height: 14),
+                              // tri-stat
+                              Row(children: [
+                                _tri(context, 'Qarz', money(t['amount'] as num), C.text(context)),
+                                _divider(context),
+                                _tri(context, 'Penya', money(t['penalty'] as num), C.amber),
+                                _divider(context),
+                                _tri(context, 'Kuniga', '+${money(t['daily'] as num)}', C.red),
+                              ]),
+                              const SizedBox(height: 14),
+                              Row(children: [
+                                Icon(Icons.event_rounded, size: 13, color: C.muted(context, .35)),
+                                const SizedBox(width: 6),
+                                Text('Muddat: ${t['due_date']?.toString() ?? '—'}',
+                                    style: TextStyle(fontSize: 11.5, color: C.muted(context, .42))),
+                              ]),
+                            ]),
+                          ),
+                        ),
                       );
                     }),
-                    const SizedBox(height: 10),
-                    Text('Penya = qarz × (MB stavka / 365) × kechikkan kunlar. Qarz summasidan oshmaydi (SK 110-modda).',
-                        style: TextStyle(fontSize: 10.5, color: C.muted(context, .32), height: 1.5)),
                   ],
                 );
               },
@@ -116,12 +191,33 @@ class _TaxScreenState extends State<TaxScreen> {
         ]),
       );
 
-  Widget _mini(BuildContext context, String k, String v, Color c) => Expanded(
+  Widget _summary(BuildContext context, String label, String value, Color valColor, Color labColor) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: labColor.withValues(alpha: .8))),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(value,
+              style: TextStyle(
+                  fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: valColor)),
+        ),
+      ]);
+
+  Widget _divider(BuildContext context) => Container(width: 1, height: 34, color: C.border(context, .1));
+
+  Widget _tri(BuildContext context, String k, String v, Color c) => Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(k, style: TextStyle(fontSize: 10, color: C.muted(context, .4))),
-          const SizedBox(height: 2),
-          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
-              child: Text(v, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c))),
+          Text(k, style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(v,
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: c)),
+          ),
         ]),
       );
 }

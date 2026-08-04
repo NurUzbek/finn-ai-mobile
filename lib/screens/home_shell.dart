@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api.dart';
@@ -50,6 +51,8 @@ class _HomeShellState extends State<HomeShell> {
     // Tarif ilova ochilishida bir marta yuklanadi — bo'limlar shunga qarab qulflanadi.
     PlanState.i.addListener(_onPlan);
     PlanState.i.load();
+    // Dashboard tugmalari pastki tabni almashtira olishi uchun
+    homeTab.addListener(_onTab);
     // Xavfsizlik taymeri: 8 soniyada yuklanmasa — majburan tugallangan deb belgilaymiz.
     Future.delayed(const Duration(seconds: 8), () {
       if (mounted) PlanState.i.markLoaded();
@@ -59,10 +62,12 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     PlanState.i.removeListener(_onPlan);
+    homeTab.removeListener(_onTab);
     super.dispose();
   }
 
   void _onPlan() { if (mounted) setState(() {}); }
+  void _onTab() { if (mounted && homeTab.value >= 0 && homeTab.value < _tabs.length) setState(() => _i = homeTab.value); }
 
   Future<void> logout() async {
     await Api.logout();
@@ -72,41 +77,84 @@ class _HomeShellState extends State<HomeShell> {
       MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
   }
 
-  /// AI konsultant tugmasi — brend gradientli doira, o'ng-past burchakda.
-  Widget _chatFab(BuildContext context) => GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ChatScreen()),
-        ),
+  /// AI konsultant — suzuvchi gradient tugma (nav ustida, o'ngda).
+  Widget _fab(BuildContext context) => GestureDetector(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen())),
         child: Container(
-          width: 58, height: 58,
+          width: 56, height: 56,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-              colors: [C.blue, C.cyan],
-            ),
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: C.blue.withValues(alpha: .45), blurRadius: 18, offset: const Offset(0, 6))],
+            gradient: C.grad,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: C.brand.withValues(alpha: .4), blurRadius: 24, offset: const Offset(0, 8))],
           ),
-          child: const Icon(Icons.auto_awesome, color: Colors.white, size: 26),
+          child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
         ),
       );
 
-  /// Tarifda yo'q bo'lim ikonkasi ustida qulf belgisi ko'rinadi.
-  Widget _lockable(IconData icon, {required bool locked, Color? color}) {
-    final base = Icon(icon, color: color);
+  static const _nav = [
+    (Icons.dashboard_rounded, 'Asosiy'),
+    (Icons.apartment_rounded, 'Firmalar'),
+    (Icons.speed_rounded, 'Risk'),
+    (Icons.account_balance_rounded, 'Soliq'),
+    (Icons.notifications_rounded, 'Xabar'),
+    (Icons.person_rounded, 'Profil'),
+  ];
+
+  Widget _navIcon(IconData ic, bool active, bool locked) {
+    final base = Icon(ic, size: 20, color: active ? Colors.white : C.muted(context, .5));
     if (!locked) return base;
     return Stack(clipBehavior: Clip.none, children: [
       base,
-      Positioned(
-        right: -5, top: -4,
-        child: Container(
-          padding: const EdgeInsets.all(2.5),
-          decoration: const BoxDecoration(color: C.amber, shape: BoxShape.circle),
-          child: const Icon(Icons.lock, size: 8, color: Colors.white),
-        ),
-      ),
+      Positioned(right: -4, top: -3, child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: const BoxDecoration(color: C.amber, shape: BoxShape.circle),
+        child: const Icon(Icons.lock, size: 7, color: Colors.white),
+      )),
     ]);
   }
+
+  /// Suzuvchi shisha (glass) pill navigatsiya — aktiv tab kengayib yorliqni ko'rsatadi.
+  Widget _glassNav(BuildContext context, bool riskLocked) => ClipRRect(
+        borderRadius: BorderRadius.circular(31),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            height: 62,
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            decoration: BoxDecoration(
+              color: C.card(context).withValues(alpha: .72),
+              borderRadius: BorderRadius.circular(31),
+              border: Border.all(color: C.border(context, .09)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.isDark(context) ? .3 : .12), blurRadius: 30, offset: const Offset(0, 12))],
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(_nav.length, (i) {
+              final active = _i == i;
+              final locked = i == 2 && riskLocked;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () { homeTab.value = i; setState(() => _i = i); },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic,
+                  width: active ? 104 : 40, height: 44,
+                  decoration: BoxDecoration(
+                    gradient: active ? C.grad : null,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: active ? [BoxShadow(color: C.brand.withValues(alpha: .34), blurRadius: 12, offset: const Offset(0, 4))] : null,
+                  ),
+                  child: ClipRect(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    _navIcon(_nav[i].$1, active, locked),
+                    if (active) Flexible(child: Padding(
+                      padding: const EdgeInsets.only(left: 7),
+                      child: Text(_nav[i].$2, maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5, letterSpacing: -.2)),
+                    )),
+                  ])),
+                ),
+              );
+            })),
+          ),
+        ),
+      );
 
   /// Barcha modullar menyusi (veb bilan parity) — chiroyli native drawer.
   Widget _drawer(BuildContext context) {
@@ -170,39 +218,15 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       key: homeScaffoldKey,
+      backgroundColor: C.bg(context),
       drawer: _drawer(context),
-      body: IndexedStack(index: _i, children: _tabs),
-      // AI konsultant — barcha tablarda ko'rinadigan suzuvchi tugma.
-      floatingActionButton: _chatFab(context),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: C.card(context),
-          border: Border(top: BorderSide(color: C.border(context, .06))),
-          boxShadow: C.isDark(context)
-              ? null
-              : [BoxShadow(color: C.inkLight.withValues(alpha: .05), blurRadius: 16, offset: const Offset(0, -3))],
-        ),
-        child: NavigationBar(
-          selectedIndex: _i,
-          onDestinationSelected: (v) => setState(() => _i = v),
-          backgroundColor: Colors.transparent,
-          indicatorColor: C.blue.withValues(alpha: .18),
-          height: 66,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: [
-            const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard, color: C.cyan), label: 'Asosiy'),
-            const NavigationDestination(icon: Icon(Icons.business_outlined), selectedIcon: Icon(Icons.business, color: C.cyan), label: 'Firmalar'),
-            NavigationDestination(
-              icon: _lockable(Icons.speed_outlined, locked: riskLocked),
-              selectedIcon: _lockable(Icons.speed_rounded, locked: riskLocked, color: C.cyan),
-              label: 'Risk',
-            ),
-            const NavigationDestination(icon: Icon(Icons.account_balance_outlined), selectedIcon: Icon(Icons.account_balance, color: C.cyan), label: 'Soliq'),
-            const NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications, color: C.cyan), label: 'Xabarlar'),
-            const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: C.cyan), label: 'Profil'),
-          ],
-        ),
-      ),
+      body: Stack(children: [
+        Positioned.fill(child: IndexedStack(index: _i, children: _tabs)),
+        // Suzuvchi shisha navigatsiya
+        Positioned(left: 14, right: 14, bottom: 20, child: _glassNav(context, riskLocked)),
+        // AI konsultant tugmasi — nav ustida, o'ngda
+        Positioned(right: 18, bottom: 96, child: _fab(context)),
+      ]),
     );
   }
 }
