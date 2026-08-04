@@ -215,6 +215,10 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final riskLocked = PlanState.i.loaded && !PlanState.i.has('risk');
+    // Telefon tizim navigatsiyasi (3-tugma yoki gesture) balandligi — nav u bilan
+    // birlashib qolmasligi uchun ustiga qo'yamiz.
+    final sysBottom = MediaQuery.of(context).viewPadding.bottom;
+    final navBottom = 10.0 + sysBottom;
 
     return Scaffold(
       key: homeScaffoldKey,
@@ -222,10 +226,10 @@ class _HomeShellState extends State<HomeShell> {
       drawer: _drawer(context),
       body: Stack(children: [
         Positioned.fill(child: IndexedStack(index: _i, children: _tabs)),
-        // Suzuvchi shisha navigatsiya
-        Positioned(left: 14, right: 14, bottom: 20, child: _glassNav(context, riskLocked)),
+        // Suzuvchi shisha navigatsiya — tizim menyusidan yuqorida
+        Positioned(left: 14, right: 14, bottom: navBottom, child: _glassNav(context, riskLocked)),
         // AI konsultant tugmasi — nav ustida, o'ngda
-        Positioned(right: 18, bottom: 96, child: _fab(context)),
+        Positioned(right: 18, bottom: navBottom + 62 + 14, child: _fab(context)),
       ]),
     );
   }

@@ -61,19 +61,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return b.toString();
   }
 
-  ({IconData icon, Color color}) _style(String slug) => switch (slug) {
-        'test' => (icon: Icons.science_outlined, color: C.amber),
-        'start' => (icon: Icons.verified_user_outlined, color: C.green),
-        'standart' => (icon: Icons.bolt_outlined, color: C.blue),
-        'optimal' => (icon: Icons.workspace_premium_outlined, color: C.cyan),
-        'business' => (icon: Icons.apartment_outlined, color: C.violet),
-        'enterprise' => (icon: Icons.diamond_outlined, color: C.sky),
-        _ => (icon: Icons.star_outline, color: C.blue),
-      };
+  Widget _gradBtn(String label, VoidCallback onTap) => GestureDetector(
+        onTap: _busy ? null : onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: C.grad,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [BoxShadow(color: C.brand.withValues(alpha: .3), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
+          child: Center(child: Text(label,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14.5))),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final hasYearly = _plans.any((p) => ((p['yearly'] ?? 0) as num) > 0);
     return Scaffold(
       backgroundColor: C.bg(context),
       appBar: AppBar(
@@ -93,13 +95,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
                     children: [
                       _currentHeader(),
-                      const SizedBox(height: 24),
-                      if (hasYearly) _cycleToggle(),
-                      if (hasYearly) const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+                      _cycleToggle(),
+                      const SizedBox(height: 16),
                       ..._plans.map((p) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.only(bottom: 14),
                             child: _planCard(p as Map<String, dynamic>),
                           )),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Istalgan vaqtda bekor qilasiz. To\'lov Payme, Click yoki Uzum orqali.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, height: 1.6, color: C.muted(context, .5)),
+                      ),
                     ],
                   ),
                 ),
@@ -155,22 +163,29 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _cycleToggle() {
-    Widget seg(String v, String label) {
-      final on = _cycle == v;
+    Widget seg(String v, String label, {bool locked = false}) {
+      final on = _cycle == v && !locked;
       return Expanded(
         child: GestureDetector(
-          onTap: () => setState(() => _cycle = v),
+          onTap: locked ? null : () => setState(() => _cycle = v),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: on ? C.blue : Colors.transparent,
+              color: on ? C.brand : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.center,
-            child: Text(label, style: TextStyle(
-              color: on ? Colors.white : C.muted(context, .7),
-              fontWeight: FontWeight.w700, fontSize: 14)),
+            child: locked
+                ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.lock_outline_rounded, size: 13, color: C.muted(context, .4)),
+                    const SizedBox(width: 5),
+                    Text('Yillik · Tez kunda',
+                        style: TextStyle(color: C.muted(context, .4), fontWeight: FontWeight.w600, fontSize: 13)),
+                  ])
+                : Text(label, style: TextStyle(
+                    color: on ? Colors.white : C.muted(context, .7),
+                    fontWeight: FontWeight.w700, fontSize: 14)),
           ),
         ),
       );
@@ -179,99 +194,130 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: C.fill(context, .05), borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [seg('monthly', 'Oylik'), seg('yearly', 'Yillik  −20%')]),
+      child: Row(children: [seg('monthly', 'Oylik'), seg('yearly', 'Yillik', locked: true)]),
     );
   }
 
+  /// Tariflar bo'yicha ko'rsatiladigan xususiyatlar matritsasi (belgi/xoch).
+  static const _matrix = [
+    ('orgs', 'Tashkilotlar kuzatuvi'),
+    ('risk', 'Risk balli va tekshiruv prognozi'),
+    ('ai', 'Finn AI tavsiyalari'),
+    ('counterparty', 'Kontragent tekshiruvi'),
+    ('cadastre', 'Kadastr va mulk ma\'lumotlari'),
+    ('audit', 'Audit jurnali va hisobotlar'),
+    ('team', 'Jamoa uchun ko\'p foydalanuvchi'),
+  ];
+
   Widget _planCard(Map<String, dynamic> p) {
     final slug = p['slug']?.toString() ?? '';
-    final st = _style(slug);
     final popular = p['popular'] == true;
     final isCurrent = p['is_current'] == true;
-    final price = (_cycle == 'yearly' ? (p['yearly'] ?? 0) : (p['monthly'] ?? 0)) as num;
-    final feats = ((p['features'] as List?) ?? []).cast<dynamic>();
+    final price = (p['monthly'] ?? 0) as num;
+    final feats = ((p['features'] as List?) ?? []).map((e) => e.toString()).toSet();
+    final free = price <= 0;
+    final trial = free && slug != 'free' && (p['is_trial'] == true || slug == 'start');
+    final borderColor = isCurrent ? C.green : (popular ? C.brand : C.border(context));
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: C.card(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: popular ? st.color.withValues(alpha: .45) : C.border(context)),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: borderColor, width: (isCurrent || popular) ? 1.5 : 1),
         boxShadow: popular
-            ? [BoxShadow(color: st.color.withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))]
-            : [BoxShadow(color: Colors.black.withValues(alpha: C.isDark(context) ? .25 : .05), blurRadius: 18, offset: const Offset(0, 8))],
+            ? [BoxShadow(color: C.brand.withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))]
+            : C.shadow(context),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(color: st.color.withValues(alpha: .14), borderRadius: BorderRadius.circular(15)),
-            child: Icon(st.icon, color: st.color, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Text(p['name']?.toString() ?? slug,
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: C.text(context)))),
-          if (popular)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: st.color, borderRadius: BorderRadius.circular(999)),
-              child: const Text('Ommabop', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
-            ),
-        ]),
-        const SizedBox(height: 16),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text(price > 0 ? _fmt(price) : 'Bepul',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: C.text(context),
-                  letterSpacing: -1, fontFeatures: const [FontFeature.tabularFigures()])),
-          if (price > 0) ...[
-            const SizedBox(width: 6),
-            Text(_cycle == 'yearly' ? 'so\'m/yil' : 'so\'m/oy',
-                style: TextStyle(fontSize: 13, color: C.muted(context, .55), fontWeight: FontWeight.w600)),
-          ],
-        ]),
-        if ((p['description']?.toString() ?? '').isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(p['description'].toString(), style: TextStyle(fontSize: 13, color: C.muted(context, .6), height: 1.4)),
-        ],
-        if (feats.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          ...feats.take(5).map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(Icons.check_circle, size: 17, color: C.green),
-                  const SizedBox(width: 9),
-                  Expanded(child: Text(f.toString(),
-                      style: TextStyle(fontSize: 13.5, color: C.muted(context, .8), height: 1.35))),
-                ]),
-              )),
-        ],
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity, height: 50,
-          child: isCurrent
-              ? OutlinedButton(
-                  onPressed: null,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: C.border(context, .12)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Stack(children: [
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(p['name']?.toString() ?? slug,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -.4, color: C.text(context))),
+              const SizedBox(width: 10),
+              if (isCurrent)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(20)),
+                  child: Text('Joriy', style: TextStyle(color: C.onGrn(context), fontWeight: FontWeight.w600, fontSize: 11.5)),
+                ),
+            ]),
+            const SizedBox(height: 10),
+            Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+              Text(free ? '0' : _fmt(price),
+                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: C.text(context),
+                      letterSpacing: -1.4, fontFeatures: const [FontFeature.tabularFigures()])),
+              const SizedBox(width: 6),
+              Text('so\'m/oy', style: TextStyle(fontSize: 13, color: C.muted(context, .5), fontWeight: FontWeight.w500)),
+            ]),
+            if ((p['description']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(p['description'].toString(), style: TextStyle(fontSize: 13, color: C.muted(context, .6), height: 1.5)),
+            ],
+            const SizedBox(height: 16),
+            ..._matrix.map((m) {
+              final has = feats.contains(m.$1);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: Row(children: [
+                  Container(
+                    width: 19, height: 19, alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: has ? C.tint(context, C.green) : C.fill(context, .06),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(has ? Icons.check_rounded : Icons.close_rounded,
+                        size: 12, color: has ? C.onGrn(context) : C.muted(context, .35)),
                   ),
-                  child: Text('Joriy tarif', style: TextStyle(color: C.muted(context, .5), fontWeight: FontWeight.w700)))
-              : popular
-                  ? FilledButton(
-                      onPressed: _busy ? null : () => _openPaymentSheet(p),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: st.color,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('Tanlash', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)))
-                  : OutlinedButton(
-                      onPressed: _busy ? null : () => _openPaymentSheet(p),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: st.color.withValues(alpha: .5)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: Text('Tanlash', style: TextStyle(color: st.color, fontWeight: FontWeight.w800, fontSize: 15))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(m.$2,
+                      style: TextStyle(fontSize: 13.5, height: 1.3,
+                          color: has ? C.muted(context, .8) : C.muted(context, .4)))),
+                ]),
+              );
+            }),
+            const SizedBox(height: 17),
+            SizedBox(
+              width: double.infinity, height: 48,
+              child: isCurrent
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
+                      child: Center(child: Text('Joriy rejim',
+                          style: TextStyle(color: C.muted(context, .55), fontWeight: FontWeight.w600, fontSize: 14.5))),
+                    )
+                  : (popular || trial)
+                      ? _gradBtn(trial ? '14 kun bepul sinash' : 'Tanlash', () => _openPaymentSheet(p))
+                      : GestureDetector(
+                          onTap: _busy ? null : () => _openPaymentSheet(p),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
+                            child: Center(child: Text('Tanlash',
+                                style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600, fontSize: 14.5))),
+                          ),
+                        ),
+            ),
+            if (trial) ...[
+              const SizedBox(height: 10),
+              Center(child: Text('Karta talab qilinmaydi',
+                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .5)))),
+            ],
+          ]),
         ),
+        if (popular)
+          Positioned(
+            top: 0, right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: const BoxDecoration(
+                gradient: C.grad,
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(9), bottomRight: Radius.circular(9)),
+              ),
+              child: const Text('KO\'P TANLANADI',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: .8)),
+            ),
+          ),
       ]),
     );
   }

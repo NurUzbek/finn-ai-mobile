@@ -69,23 +69,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return ListView(
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+                padding: EdgeInsets.fromLTRB(
+                    20, 4, 20, 110 + MediaQuery.of(context).viewPadding.bottom),
                 children: [
                   StaggerIn(index: 0, child: _header(first, unread)),
                   const SizedBox(height: 14),
                   StaggerIn(
                       index: 1,
                       child: _balance(totalBalance, orgCount, clean, overdue)),
-                  StaggerIn(index: 2, child: _upsell()),
+                  StaggerIn(index: 2, child: _quickActions()),
+                  StaggerIn(index: 3, child: _upsell()),
                   if (overdue > 0)
-                    StaggerIn(index: 3, child: _alert(overdue, penalty)),
+                    StaggerIn(index: 4, child: _alert(overdue, penalty)),
                   StaggerIn(
-                      index: 4,
+                      index: 5,
                       child: _eyebrow('Moliyaviy holat',
                           action: 'Batafsil', onAction: () => homeTab.value = 3)),
-                  StaggerIn(index: 5, child: _financials(debt, penalty)),
-                  StaggerIn(index: 6, child: _eyebrow('Tavsiya')),
-                  StaggerIn(index: 7, child: _ai(overdue, penalty)),
+                  StaggerIn(index: 6, child: _financials(debt, penalty)),
+                  StaggerIn(
+                      index: 7,
+                      child: _eyebrow('Firmalaringiz',
+                          action: orgCount > 0 ? 'Barchasi' : null,
+                          onAction: () => homeTab.value = 1)),
+                  StaggerIn(index: 8, child: _orgSection(orgs)),
+                  StaggerIn(index: 9, child: _eyebrow('Tavsiya')),
+                  StaggerIn(index: 10, child: _ai(overdue, penalty)),
                 ],
               );
             },
@@ -562,6 +570,171 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  // ─────────────────────────── QUICK ACTIONS ───────────────────────────
+  Widget _quickActions() {
+    final items = <(IconData, String, Color, int)>[
+      (Icons.apartment_rounded, 'Firmalar', C.brand, 1),
+      (Icons.account_balance_rounded, 'Soliq', C.red, 3),
+      (Icons.speed_rounded, 'Risk', C.green, 2),
+      (Icons.notifications_rounded, 'Xabar', C.violet, 4),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => homeTab.value = items[i].$4,
+                child: Column(children: [
+                  _MagneticTap(
+                    child: Container(
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: C.tint(context, items[i].$3),
+                        borderRadius: BorderRadius.circular(19),
+                      ),
+                      child: Icon(items[i].$1, color: items[i].$3, size: 25),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(items[i].$2,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: C.muted(context, .7))),
+                ]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────── FIRMALAR ───────────────────────────
+  Widget _orgSection(List orgs) {
+    if (orgs.isEmpty) {
+      return _card(
+        onTap: () => homeTab.value = 1,
+        child: Row(children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+                color: C.tint(context, C.brand),
+                borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.add_business_rounded, color: C.brand, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Firma qo\'shing',
+                  style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: C.text(context))),
+              const SizedBox(height: 2),
+              Text('Soliq holatini kuzatishni boshlang',
+                  style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+            ]),
+          ),
+          Icon(Icons.chevron_right_rounded, size: 18, color: C.muted(context, .4)),
+        ]),
+      );
+    }
+    return Column(
+      children: [
+        for (final o in orgs.take(5)) ...[
+          _orgRow(o as Map),
+          const SizedBox(height: 9),
+        ],
+      ],
+    );
+  }
+
+  Widget _orgRow(Map o) {
+    final name = (o['name'] ?? '').toString();
+    final stir = (o['stir'] ?? '').toString();
+    final debt = (o['debt'] ?? 0) as num;
+    final clean = debt <= 0;
+    final col = clean ? C.green : C.red;
+    final words = name.trim().split(RegExp(r'\s+'));
+    final mono = (words.length >= 2
+            ? '${words[0][0]}${words[1][0]}'
+            : (name.length >= 2 ? name.substring(0, 2) : name))
+        .toUpperCase();
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => homeTab.value = 1,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
+        ),
+        child: Row(children: [
+          Container(
+            width: 42, height: 42, alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: C.tint(context, col),
+                borderRadius: BorderRadius.circular(13)),
+            child: Text(mono,
+                style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: clean ? C.onGrn(context) : C.onRed(context))),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: C.text(context))),
+              if (stir.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text('STIR $stir',
+                    style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
+              ],
+            ]),
+          ),
+          const SizedBox(width: 10),
+          if (clean)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                  color: C.tint(context, C.green),
+                  borderRadius: BorderRadius.circular(20)),
+              child: Text('Toza',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: C.onGrn(context))),
+            )
+          else
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(money(debt),
+                  style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.3,
+                      color: C.red)),
+              const SizedBox(height: 1),
+              Text('qarz',
+                  style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
+            ]),
+        ]),
       ),
     );
   }
