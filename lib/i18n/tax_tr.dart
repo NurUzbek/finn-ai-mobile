@@ -25,4 +25,9 @@ const Map<String, Map<String, String>> tr = {
 
   // ── Bo'sh holat ──
   'tax.emptyState': {'uz': 'Soliq qarzi yo\'q — hammasi toza', 'uzc': 'Солиқ қарзи йўқ — ҳаммаси тоза', 'ru': 'Нет налоговой задолженности — всё чисто', 'en': 'No tax debt — all clear'},
+
+  // ── МЖтК jarimalari (BHM asosida) ──
+  'tax.finesTitle': {'uz': 'JARIMA XAVFI (МЖтК)', 'uzc': 'ЖАРИМА ХАВФИ (МЖтК)', 'ru': 'РИСК ШТРАФА (КоАО)', 'en': 'FINE RISK (Admin Code)'},
+  'tax.finesNote': {'uz': 'Bazaviy hisoblash miqdori (BHM) karralarida', 'uzc': 'Базавий ҳисоблаш миқдори (БҲМ) карраларида', 'ru': 'В кратности базовой расчётной величины (БРВ)', 'en': 'In multiples of the base calculation amount (BCA)'},
+  'tax.finesUpto': {'uz': 'gacha', 'uzc': 'гача', 'ru': 'до', 'en': 'up to'},
 };

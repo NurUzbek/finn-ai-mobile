@@ -184,6 +184,8 @@ class _TaxScreenState extends State<TaxScreen> {
                         ),
                       );
                     }),
+                    // ── МЖтК jarimalari (BHM asosida) ──
+                    ..._finesSection(context, d),
                   ],
                 );
               },
@@ -205,6 +207,70 @@ class _TaxScreenState extends State<TaxScreen> {
                   fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.8, color: valColor)),
         ),
       ]);
+
+  /// МЖтК ma'muriy jarimalari — BHM karralarida (backend PenaltyService bilan bir manba).
+  List<Widget> _finesSection(BuildContext context, Map<String, dynamic> d) {
+    final fines = (d['fines'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+    if (fines.isEmpty) return const [];
+    final bhm = (d['bhm'] as num?) ?? 412000;
+    return [
+      const SizedBox(height: 24),
+      Row(children: [
+        Text(tr('tax.finesTitle'),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: C.muted(context, .4))),
+        const SizedBox(width: 10),
+        Expanded(child: Container(height: 1, color: C.border(context))),
+      ]),
+      const SizedBox(height: 4),
+      Text('${tr('tax.finesNote')} · BHM ${money(bhm)} ${tr('common.som')}',
+          style: TextStyle(fontSize: 11.5, color: C.muted(context, .45))),
+      const SizedBox(height: 12),
+      ...fines.asMap().entries.map((e) {
+        final f = e.value;
+        final rows = (f['rows'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+        final maxSum = rows.fold<double>(0, (a, r) => (r['max_sum'] as num).toDouble() > a ? (r['max_sum'] as num).toDouble() : a);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 9),
+          child: StaggerIn(
+            index: e.key,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: C.card(context),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: C.border(context)),
+                boxShadow: C.shadow(context),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 34, height: 34, alignment: Alignment.center,
+                  decoration: BoxDecoration(color: C.tint(context, C.amber), borderRadius: BorderRadius.circular(11)),
+                  child: Icon(Icons.gavel_rounded, size: 17, color: C.onAmb(context)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(f['label']?.toString() ?? '',
+                        style: TextStyle(fontSize: 13, height: 1.3, fontWeight: FontWeight.w600, color: C.text(context))),
+                    const SizedBox(height: 3),
+                    Text(f['art']?.toString() ?? '',
+                        style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
+                  ]),
+                ),
+                const SizedBox(width: 10),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(tr('tax.finesUpto'), style: TextStyle(fontSize: 10, color: C.muted(context, .4))),
+                  const SizedBox(height: 1),
+                  Text(money(maxSum),
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: C.red)),
+                ]),
+              ]),
+            ),
+          ),
+        );
+      }),
+    ];
+  }
 
   Widget _divider(BuildContext context) => Container(width: 1, height: 34, color: C.border(context, .1));
 
