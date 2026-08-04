@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../services/api.dart';
 import '../services/lock.dart';
 import '../services/theme.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 import 'login_screen.dart';
 import 'pin_screen.dart';
@@ -21,9 +21,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Future<Map<String, dynamic>> _f = Api.me();
   Future<void> _refresh() async => setState(() => _f = Api.me());
 
-  static const _locales = {'uz': "O'zbekcha", 'ru': 'Русский', 'en': 'English'};
-  String _locale = 'uz';
-
   bool _push = true; // faqat lokal — endpoint yo'q
   bool _bioOn = false;
   bool _bioAvail = false;
@@ -31,16 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLocale();
     _loadLock();
-  }
-
-  Future<void> _loadLocale() async {
-    final sp = await SharedPreferences.getInstance();
-    final v = sp.getString('finn_locale');
-    if (v != null && _locales.containsKey(v) && mounted) {
-      setState(() => _locale = v);
-    }
   }
 
   Future<void> _loadLock() async {
@@ -76,27 +64,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text('Ilova tili', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: C.text(c))),
             ]),
           ),
-          for (final e in _locales.entries)
+          for (final k in I18n.langs)
             ListTile(
-              title: Text(e.value, style: TextStyle(color: C.text(c), fontWeight: FontWeight.w600)),
-              trailing: _locale == e.key ? const Icon(Icons.check_circle, color: C.green, size: 20) : null,
-              onTap: () => Navigator.pop(c, e.key),
+              title: Text(I18n.langNames[k]!, style: TextStyle(color: C.text(c), fontWeight: FontWeight.w600)),
+              subtitle: Text(I18n.langSub[k]!, style: TextStyle(color: C.muted(c, .5), fontSize: 12)),
+              trailing: I18n.i.lang == k ? const Icon(Icons.check_circle, color: C.green, size: 20) : null,
+              onTap: () => Navigator.pop(c, k),
             ),
           const SizedBox(height: 8),
         ]),
       ),
     );
     if (picked == null) return;
-    setState(() => _locale = picked);
-    final sp = await SharedPreferences.getInstance();
-    await sp.setString('finn_locale', picked);
-    if (!mounted) return;
-    _toast('Til saqlandi: ${_locales[picked]}');
+    await I18n.i.setLang(picked); // butun ilova qayta quriladi
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggleBio(bool v) async {
     if (v) {
-      if (!_bioAvail) { _toast('Qurilmada biometrika mavjud emas'); return; }
+      if (!_bioAvail) { _toast(tr('profile.bioUnavailable')); return; }
       // PIN bo'lmasa — avval o'rnatamiz (PinScreen 'set' o'zi biometrikani so'raydi).
       if (!await Lock.hasPin()) {
         await Lock.setBio(true);
@@ -124,11 +110,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (c) => AlertDialog(
         backgroundColor: C.card(c),
-        title: Text('Chiqish', style: TextStyle(fontSize: 17, color: C.text(c))),
-        content: Text('Hisobingizdan chiqmoqchimisiz?', style: TextStyle(fontSize: 13.5, color: C.muted(c, .7))),
+        title: Text(tr('profile.logout'), style: TextStyle(fontSize: 17, color: C.text(c))),
+        content: Text(tr('profile.logoutConfirm'), style: TextStyle(fontSize: 13.5, color: C.muted(c, .7))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Bekor')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Chiqish', style: TextStyle(color: C.red))),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('common.cancel'))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(tr('profile.logout'), style: const TextStyle(color: C.red))),
         ],
       ),
     );
@@ -161,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) => SafeArea(
         child: Column(children: [
-          const ScreenHeader(title: 'Profil', icon: Icons.person, subtitle: 'Hisob va sozlamalar'),
+          ScreenHeader(title: tr('nav.profile'), icon: Icons.person, subtitle: tr('profile.headerSub')),
           Expanded(
             child: Loader(
               future: _f,
@@ -181,14 +167,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final isTrial = plan['is_trial'] == true;
                 final rawName = (plan['name'] ?? '').toString();
                 final planTitle = isTrial
-                    ? 'Sinov rejimi'
+                    ? tr('profile.planTrial')
                     : (slug == 'free' || rawName.toUpperCase() == 'FREE')
-                        ? 'Bepul rejim'
-                        : (rawName.isEmpty ? 'Joriy reja' : rawName);
+                        ? tr('profile.planFree')
+                        : (rawName.isEmpty ? tr('profile.planCurrent') : rawName);
                 final orgsLimit = features['orgs_limit'];
                 final planSub = orgsLimit == null
-                    ? '$orgsCount ta firma kuzatilmoqda'
-                    : '$orgsLimit tadan $orgsCount ta firma kuzatilmoqda';
+                    ? tr('profile.orgsWatched').replaceAll('{n}', '$orgsCount')
+                    : tr('profile.orgsWatchedLimit')
+                        .replaceAll('{limit}', '$orgsLimit')
+                        .replaceAll('{n}', '$orgsCount');
 
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
@@ -201,53 +189,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     StaggerIn(index: 1, child: _planCard(context, planTitle, planSub)),
 
                     // ── Sozlamalar ──
-                    StaggerIn(index: 2, child: _eyebrow(context, 'Sozlamalar')),
+                    StaggerIn(index: 2, child: _eyebrow(context, tr('profile.secSettings'))),
                     StaggerIn(index: 2, child: _group(context, [
                       _themeRow(context),
                       _row(context,
                           icon: Icons.language, color: C.blue,
-                          title: 'Til', sub: _locales[_locale] ?? "O'zbekcha",
+                          title: tr('profile.language'), sub: I18n.langNames[I18n.i.lang] ?? "O'zbekcha",
                           onTap: _pickLocale),
                       _switchRow(context,
                           icon: Icons.notifications_none_rounded, color: C.green,
-                          title: 'Push bildirishnoma', sub: "To'lov va risk haqida",
+                          title: tr('profile.push'), sub: tr('profile.pushSub'),
                           value: _push, onChanged: (v) => setState(() => _push = v)),
                       _row(context,
                           icon: Icons.grid_view_rounded, color: C.brand,
-                          title: 'Barcha modullar', sub: '12 ta bo\'lim',
+                          title: tr('profile.allModules'), sub: tr('profile.modulesSub'),
                           onTap: () => homeScaffoldKey.currentState?.openDrawer()),
                     ])),
 
                     // ── Xavfsizlik ──
-                    StaggerIn(index: 3, child: _eyebrow(context, 'Xavfsizlik')),
+                    StaggerIn(index: 3, child: _eyebrow(context, tr('profile.secSecurity'))),
                     StaggerIn(index: 3, child: _group(context, [
                       _switchRow(context,
                           icon: Icons.face_retouching_natural, color: C.blue,
-                          title: 'Face ID', sub: 'Ilovani ochishda',
+                          title: tr('profile.faceId'), sub: tr('profile.faceIdSub'),
                           value: _bioOn, onChanged: _toggleBio),
                       _row(context,
                           icon: Icons.lock_outline_rounded, color: C.violet,
-                          title: 'Parol kodini o\'zgartirish', sub: '4 xonali kod',
+                          title: tr('profile.changePin'), sub: tr('profile.changePinSub'),
                           onTap: _changePin),
                       _row(context,
                           icon: Icons.devices_rounded, color: C.amber,
-                          title: 'Aktiv qurilmalar', sub: '$devices ta faol sessiya',
+                          title: tr('profile.devices'), sub: tr('profile.sessions').replaceAll('{n}', '$devices'),
                           onTap: () => _openDevices(devices)),
                       _row(context,
                           icon: Icons.timer_outlined, color: C.muted(context, .55),
-                          title: 'Sessiya muddati', sub: '3 daqiqa harakatsizlik',
-                          onTap: () => _toast('Sessiya 3 daqiqa harakatsizlikda yopiladi')),
+                          title: tr('profile.sessionTimeout'), sub: tr('profile.sessionTimeoutSub'),
+                          onTap: () => _toast(tr('profile.sessionToast'))),
                     ])),
 
                     // ── Hisob ──
-                    StaggerIn(index: 4, child: _eyebrow(context, 'Hisob')),
+                    StaggerIn(index: 4, child: _eyebrow(context, tr('profile.secAccount'))),
                     StaggerIn(index: 4, child: _group(context, [
                       _row(context,
                           icon: Icons.mail_outline_rounded, color: C.blue,
-                          title: 'Email', sub: email),
+                          title: tr('profile.email'), sub: email),
                       _row(context,
                           icon: Icons.logout_rounded, color: C.red,
-                          title: 'Chiqish', danger: true, onTap: _logout),
+                          title: tr('profile.logout'), danger: true, onTap: _logout),
                     ])),
 
                     const SizedBox(height: 20),
@@ -279,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name.isEmpty ? 'Foydalanuvchi' : name,
+            Text(name.isEmpty ? tr('profile.userFallback') : name,
                 style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, letterSpacing: -0.2, color: C.text(c))),
             const SizedBox(height: 3),
             Text(phone, style: TextStyle(fontSize: 12.5, color: C.muted(c, .5))),
@@ -309,8 +297,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(gradient: C.grad, borderRadius: BorderRadius.circular(30)),
-              child: const Text('Kengaytirish',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+              child: Text(tr('common.expand'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
             ),
           ),
         ]),
@@ -401,7 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final dark = ThemeState.i.isDark;
     return _row(c,
         icon: Icons.contrast_rounded, color: C.violet,
-        title: 'Mavzu', sub: dark ? "Qorong'i rejim" : "Yorug' rejim",
+        title: tr('profile.theme'), sub: dark ? tr('profile.themeDark') : tr('profile.themeLight'),
         trailing: _Segment(dark: dark));
   }
 
@@ -510,9 +498,9 @@ class _DevicesScreen extends StatelessWidget {
                   icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: C.text(context)),
                 ),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Aktiv qurilmalar',
+                  Text(tr('profile.devices'),
                       style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, letterSpacing: -0.3, color: C.text(context))),
-                  Text('$count ta faol sessiya', style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+                  Text(tr('profile.sessions').replaceAll('{n}', '$count'), style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
                 ])),
               ]),
             ),
@@ -534,14 +522,14 @@ class _DevicesScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 13),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Bu qurilma', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.text(context))),
+                    Text(tr('profile.thisDevice'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.text(context))),
                     const SizedBox(height: 2),
-                    Text('Hozir faol · joriy sessiya', style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
+                    Text(tr('profile.thisDeviceSub'), style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
                   ])),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(20)),
-                    child: Text('Faol', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: C.onGrn(context))),
+                    child: Text(tr('profile.active'), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: C.onGrn(context))),
                   ),
                 ]),
               ),
@@ -549,7 +537,7 @@ class _DevicesScreen extends StatelessWidget {
             const Spacer(),
             Center(child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('Boshqa qurilmalar ro\'yxati tez orada',
+              child: Text(tr('profile.devicesSoon'),
                   style: TextStyle(fontSize: 12, color: C.muted(context, .4))),
             )),
           ]),

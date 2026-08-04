@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 
 /// "Soliq qarzi" moduli — soliq qarzdorligi, kechikkan kunlar, real vaqtda penya.
@@ -17,10 +18,10 @@ class _TaxScreenState extends State<TaxScreen> {
   @override
   Widget build(BuildContext context) => SafeArea(
         child: Column(children: [
-          const ScreenHeader(
-            title: 'Soliq qarzi',
+          ScreenHeader(
+            title: tr('tax.header'),
             icon: Icons.account_balance_rounded,
-            subtitle: 'Penya real vaqtda hisoblanadi',
+            subtitle: tr('tax.subtitle'),
           ),
           Expanded(
             child: Loader(
@@ -31,11 +32,11 @@ class _TaxScreenState extends State<TaxScreen> {
                 if (debts.isEmpty) {
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 80),
+                    children: [
+                      const SizedBox(height: 80),
                       EmptyState(
                         icon: Icons.verified_rounded,
-                        text: 'Soliq qarzi yo\'q — hammasi toza',
+                        text: tr('tax.emptyState'),
                         color: C.green,
                       ),
                     ],
@@ -59,10 +60,10 @@ class _TaxScreenState extends State<TaxScreen> {
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Row(children: [
-                          Expanded(child: _summary(context, 'Umumiy qarz', money(total), C.red, C.onRed(context))),
+                          Expanded(child: _summary(context, tr('tax.totalDebt'), money(total), C.red, C.onRed(context))),
                           Container(width: 1, height: 44, color: C.red.withValues(alpha: .2)),
                           const SizedBox(width: 16),
-                          Expanded(child: _summary(context, 'Jami penya', money(pen), C.amber, C.onAmb(context))),
+                          Expanded(child: _summary(context, tr('tax.totalPenalty'), money(pen), C.amber, C.onAmb(context))),
                         ]),
                       ),
                     ),
@@ -83,14 +84,14 @@ class _TaxScreenState extends State<TaxScreen> {
                           Container(width: 7, height: 7,
                               decoration: const BoxDecoration(color: C.red, shape: BoxShape.circle)),
                           const SizedBox(width: 9),
-                          Text('Har kuni qo\'shilmoqda',
+                          Text(tr('tax.dailyAdd'),
                               style: TextStyle(fontSize: 13, color: C.muted(context, .7))),
                           const Spacer(),
                           Text('+${money(daily)}',
                               style: const TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: C.red)),
                           const SizedBox(width: 4),
-                          Text('so\'m', style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
+                          Text(tr('common.som'), style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
                         ]),
                       ),
                     ),
@@ -98,7 +99,7 @@ class _TaxScreenState extends State<TaxScreen> {
 
                     // ── Eyebrow ──
                     Row(children: [
-                      Text('MUDDAT BO\'YICHA',
+                      Text(tr('tax.eyebrow'),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -107,8 +108,8 @@ class _TaxScreenState extends State<TaxScreen> {
                       const SizedBox(width: 10),
                       Expanded(child: Container(height: 1, color: C.border(context))),
                       const SizedBox(width: 10),
-                      const Text('Saralash',
-                          style: TextStyle(
+                      Text(tr('tax.sort'),
+                          style: const TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w700, color: C.brand)),
                     ]),
                     const SizedBox(height: 12),
@@ -157,7 +158,7 @@ class _TaxScreenState extends State<TaxScreen> {
                                     color: C.tint(context, pillColor),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  child: Text('$od kun',
+                                  child: Text('$od ${tr('tax.daysWord')}',
                                       style: TextStyle(
                                           fontSize: 11.5, fontWeight: FontWeight.w800, color: pillTxt)),
                                 ),
@@ -165,17 +166,17 @@ class _TaxScreenState extends State<TaxScreen> {
                               const SizedBox(height: 14),
                               // tri-stat
                               Row(children: [
-                                _tri(context, 'Qarz', money(t['amount'] as num), C.text(context)),
+                                _tri(context, tr('tax.debt'), money(t['amount'] as num), C.text(context)),
                                 _divider(context),
-                                _tri(context, 'Penya', money(t['penalty'] as num), C.amber),
+                                _tri(context, tr('tax.penalty'), money(t['penalty'] as num), C.amber),
                                 _divider(context),
-                                _tri(context, 'Kuniga', '+${money(t['daily'] as num)}', C.red),
+                                _tri(context, tr('tax.daily'), '+${money(t['daily'] as num)}', C.red),
                               ]),
                               const SizedBox(height: 14),
                               Row(children: [
                                 Icon(Icons.event_rounded, size: 13, color: C.muted(context, .35)),
                                 const SizedBox(width: 6),
-                                Text('Muddat: ${t['due_date']?.toString() ?? '—'}',
+                                Text('${tr('tax.dueLabel')}: ${t['due_date']?.toString() ?? '—'}',
                                     style: TextStyle(fontSize: 11.5, color: C.muted(context, .42))),
                               ]),
                             ]),

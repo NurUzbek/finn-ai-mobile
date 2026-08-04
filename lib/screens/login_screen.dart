@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../services/lock.dart';
 import 'home_shell.dart';
 import 'pin_screen.dart';
@@ -54,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _send() async {
     final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length != 9) return setState(() => _err = 'Telefon raqamini to\'liq kiriting');
+    if (digits.length != 9) return setState(() => _err = tr('login.errPhoneIncomplete'));
     setState(() { _busy = true; _err = null; });
     final r = await Api.sendCode('998$digits');
     if (!mounted) return;
@@ -76,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       TextInput.finishAutofillContext();
       _afterAuth();
     } else {
-      setState(() { _err = r['message'] ?? 'Kod noto\'g\'ri'; _code.clear(); });
+      setState(() { _err = r['message'] ?? tr('login.errWrongCode'); _code.clear(); });
     }
   }
 
@@ -148,16 +149,16 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            Text('FINN · SOLIQ MONITORING', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: C.muted(context, .45))),
+            Text(tr('login.eyebrow'), style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: C.muted(context, .45))),
             const SizedBox(height: 12),
-            Text('Xush kelibsiz', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.3, height: 1.1, color: C.text(context))),
+            Text(tr('login.welcome'), style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.3, height: 1.1, color: C.text(context))),
             const SizedBox(height: 10),
-            Text('Telefon raqamingizni kiriting — SMS orqali tasdiqlash kodi yuboramiz.',
+            Text(tr('login.subtitle'),
                 style: TextStyle(fontSize: 15, height: 1.55, color: C.muted(context, .7))),
             const SizedBox(height: 30),
-            if (widget.expired) _banner(Icons.timer_off_rounded, C.amber, 'Harakatsizlik tufayli chiqarildingiz. Qaytadan kiring.'),
+            if (widget.expired) _banner(Icons.timer_off_rounded, C.amber, tr('login.expired')),
             if (_err != null) _banner(Icons.error_outline_rounded, C.red, _err!),
-            Text('Telefon raqam', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: C.muted(context, .7))),
+            Text(tr('login.phoneLabel'), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: C.muted(context, .7))),
             const SizedBox(height: 8),
             _field(child: Row(children: [
               Icon(Icons.smartphone_rounded, size: 19, color: C.muted(context, .45)),
@@ -178,11 +179,11 @@ class _LoginScreenState extends State<LoginScreen> {
               )),
             ])),
             const SizedBox(height: 20),
-            _cta(_busy ? null : _send, 'Kodni yuborish', Icons.arrow_forward_rounded),
+            _cta(_busy ? null : _send, tr('login.sendCode'), Icons.arrow_forward_rounded),
             const SizedBox(height: 20),
             Row(children: [
               Expanded(child: Divider(color: C.border(context, .12))),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text('YOKI', style: TextStyle(color: C.muted(context, .45), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.3))),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text(tr('login.or'), style: TextStyle(color: C.muted(context, .45), fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.3))),
               Expanded(child: Divider(color: C.border(context, .12))),
             ]),
             const SizedBox(height: 20),
@@ -208,20 +209,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Image.asset('assets/oneid_blue.png', fit: BoxFit.contain),
                   ),
                   const SizedBox(width: 11),
-                  Text('OneID bilan kirish', style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600, fontSize: 15.5)),
+                  Text(tr('login.oneidLogin'), style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600, fontSize: 15.5)),
                 ]),
               ),
             )),
             const SizedBox(height: 11),
-            Center(child: Text('Tashkilotlaringiz avtomatik aniqlanadi', style: TextStyle(fontSize: 12, color: C.muted(context, .45)))),
+            Center(child: Text(tr('login.orgsAutoDetect'), style: TextStyle(fontSize: 12, color: C.muted(context, .45)))),
             const Spacer(),
             const SizedBox(height: 24),
             Center(child: Text.rich(TextSpan(
               style: TextStyle(fontSize: 12, height: 1.6, color: C.muted(context, .45)),
-              children: const [
-                TextSpan(text: 'Davom etish orqali foydalanish shartlari va\n'),
-                TextSpan(text: 'maxfiylik siyosati', style: TextStyle(decoration: TextDecoration.underline)),
-                TextSpan(text: 'ga rozilik bildirasiz.'),
+              children: [
+                TextSpan(text: tr('login.legal1')),
+                TextSpan(text: tr('login.legalPrivacy'), style: const TextStyle(decoration: TextDecoration.underline)),
+                TextSpan(text: tr('login.legal2')),
               ],
             ), textAlign: TextAlign.center)),
           ]),
@@ -246,14 +247,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             )),
             const SizedBox(height: 30),
-            Text('Kodni kiriting', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.3, height: 1.1, color: C.text(context))),
+            Text(tr('login.enterCode'), style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1.3, height: 1.1, color: C.text(context))),
             const SizedBox(height: 10),
             Text.rich(TextSpan(
               style: TextStyle(fontSize: 15, height: 1.55, color: C.muted(context, .7)),
               children: [
-                const TextSpan(text: 'SMS '),
+                TextSpan(text: tr('login.smsSentPrefix')),
                 TextSpan(text: '+998 ${_phone.text}', style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600)),
-                const TextSpan(text: ' raqamiga yuborildi.'),
+                TextSpan(text: tr('login.smsSentSuffix')),
               ],
             )),
             const SizedBox(height: 30),
@@ -296,14 +297,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ))),
             ]),
             const SizedBox(height: 24),
-            _cta(_busy || _code.text.length != 4 ? null : _verify, 'Tasdiqlash', Icons.check_rounded),
+            _cta(_busy || _code.text.length != 4 ? null : _verify, tr('login.verify'), Icons.check_rounded),
             const SizedBox(height: 22),
             Center(child: _seconds > 0
-                ? Text('Qayta yuborish — 0:${_seconds.toString().padLeft(2, '0')}', style: TextStyle(fontSize: 13.5, color: C.muted(context, .5)))
-                : TextButton(onPressed: _busy ? null : _send, child: const Text('Kodni qayta yuborish', style: TextStyle(color: _blue, fontWeight: FontWeight.w600, fontSize: 13.5)))),
+                ? Text('${tr('login.resend')} — 0:${_seconds.toString().padLeft(2, '0')}', style: TextStyle(fontSize: 13.5, color: C.muted(context, .5)))
+                : TextButton(onPressed: _busy ? null : _send, child: Text(tr('login.resendCode'), style: const TextStyle(color: _blue, fontWeight: FontWeight.w600, fontSize: 13.5)))),
             const Spacer(),
             const SizedBox(height: 20),
-            _altBtn(() { _timer?.cancel(); setState(() { _codeStep = false; _err = null; _code.clear(); }); }, 'Boshqa raqam kiritish'),
+            _altBtn(() { _timer?.cancel(); setState(() { _codeStep = false; _err = null; _code.clear(); }); }, tr('login.otherNumber')),
           ]),
         ),
       );
@@ -404,7 +405,7 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
     _watchdog?.cancel();
     // 45s ichida hech narsa yuklanmasa — muzlab qolmasin, xato ko'rsatamiz
     _watchdog = Timer(const Duration(seconds: 45), () {
-      if (mounted && !_ready && !_finishing) setState(() => _error = 'Ulanish sekin — internetni tekshiring');
+      if (mounted && !_ready && !_finishing) setState(() => _error = tr('login.errSlow'));
     });
     _c = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -417,7 +418,7 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
               final m = RegExp(r'"token"\s*:\s*"([^"]+)"').firstMatch(res.toString());
               if (m != null && mounted) { Navigator.of(context).pop(m.group(1)); return; }
             } catch (_) {}
-            if (mounted) setState(() => _error = 'Kirish yakunlanmadi — qayta urining');
+            if (mounted) setState(() => _error = tr('login.errAuthIncomplete'));
             return;
           }
           if (u.contains('/dashboard') || u.contains('/subscription') || u.contains('/profile') || RegExp(r'finn\.uz/?$').hasMatch(u)) {
@@ -434,7 +435,7 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
         },
         onWebResourceError: (e) {
           if (e.isForMainFrame == true && mounted && !_ready) {
-            setState(() => _error = 'Sahifa ochilmadi — qayta urining');
+            setState(() => _error = tr('login.errPageFailed'));
           }
         },
       ))
@@ -484,30 +485,30 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
           ),
           const SizedBox(height: 28),
           if (_error != null) ...[
-            Text('Ulanmadi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.text(context))),
+            Text(tr('login.oneidFailed'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.text(context))),
             const SizedBox(height: 8),
             Text(_error!, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.5, color: C.muted(context, .65))),
             const SizedBox(height: 24),
             SizedBox(width: 200, child: _Magnetic(child: DecoratedBox(
               decoration: BoxDecoration(gradient: _grad, borderRadius: BorderRadius.circular(14)),
-              child: SizedBox(height: 50, child: TextButton(onPressed: _retry, child: const Text('Qayta urinish', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)))),
+              child: SizedBox(height: 50, child: TextButton(onPressed: _retry, child: Text(tr('common.retry'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)))),
             ))),
             const SizedBox(height: 8),
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: Text('Bekor qilish', style: TextStyle(color: C.muted(context, .6), fontSize: 13.5, fontWeight: FontWeight.w600))),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(tr('common.cancel'), style: TextStyle(color: C.muted(context, .6), fontSize: 13.5, fontWeight: FontWeight.w600))),
           ] else ...[
-            Text(_finishing ? 'Kirilmoqda…' : 'OneID orqali xavfsiz kirish',
+            Text(_finishing ? tr('login.oneidLoggingIn') : tr('login.oneidSecure'),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.text(context))),
             const SizedBox(height: 10),
-            Text(_finishing ? 'Tashkilotlaringiz aniqlanmoqda' : 'Davlat identifikatsiya tizimiga ulanmoqda',
+            Text(_finishing ? tr('login.oneidDetectingOrgs') : tr('login.oneidConnecting'),
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, height: 1.5, color: C.muted(context, .6))),
             const SizedBox(height: 26),
             SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 2.6, valueColor: const AlwaysStoppedAnimation(_blue), backgroundColor: C.border(context, .1))),
           ],
           const Spacer(),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.lock_rounded, size: 13, color: C.green),
+            const Icon(Icons.lock_rounded, size: 13, color: C.green),
             const SizedBox(width: 6),
-            Text('Parol faqat id.egov.uz\'ga yuboriladi', style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+            Text(tr('login.oneidPasswordNote'), style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
           ]),
         ]),
       );

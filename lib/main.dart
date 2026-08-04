@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/api.dart';
 import 'services/idle_guard.dart';
 import 'services/theme.dart';
+import 'services/i18n.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/lock.dart';
 import 'screens/login_screen.dart';
@@ -108,6 +109,7 @@ class _FinnAppState extends State<FinnApp> {
   void initState() {
     super.initState();
     ThemeState.i.load();
+    I18n.i.load();
     _decideStart();
   }
 
@@ -207,7 +209,7 @@ class _FinnAppState extends State<FinnApp> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: ThemeState.i,
+      animation: Listenable.merge([ThemeState.i, I18n.i]),
       builder: (context, _) => MaterialApp(
         navigatorKey: navKey,
         title: 'FINN AI',

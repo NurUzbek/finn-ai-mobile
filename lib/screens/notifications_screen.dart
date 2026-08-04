@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 
 /// "Xabarlar" moduli — muhim bildirishnomalar, eslatmalar va risk signallari.
@@ -88,7 +89,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ? EmptyState(
                             icon: Icons.cloud_off_rounded,
                             color: C.red,
-                            text: (d['message'] ?? 'Ma\'lumot olinmadi')
+                            text: (d['message'] ?? tr('notif.noData'))
                                 .toString())
                         : RefreshIndicator(
                             color: C.brand,
@@ -106,9 +107,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget _header(BuildContext c, int unread, bool loading) {
     final can = unread > 0 && !loading;
     return ScreenHeader(
-      title: 'Xabarlar',
+      title: tr('notif.title'),
       icon: Icons.notifications_rounded,
-      subtitle: loading ? 'Yuklanmoqda…' : '$unread ta o\'qilmagan',
+      subtitle: loading ? tr('state.loading') : '$unread ${tr('notif.unread')}',
       action: TextButton(
         onPressed: can ? _readAll : null,
         style: TextButton.styleFrom(
@@ -117,7 +118,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(
-          'Hammasi o\'qildi',
+          tr('notif.markAllRead'),
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -141,25 +142,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(children: [
-            _chip(c, label: 'Hammasi', idx: 0),
+            _chip(c, label: tr('common.all'), idx: 0),
             const SizedBox(width: 8),
             _chip(c,
-                label: muhim > 0 ? 'Muhim $muhim' : 'Muhim',
+                label: muhim > 0
+                    ? '${tr('notif.important')} $muhim'
+                    : tr('notif.important'),
                 idx: 1,
                 dot: C.red),
             const SizedBox(width: 8),
-            _chip(c, label: 'To\'lov', idx: 2),
+            _chip(c, label: tr('notif.payment'), idx: 2),
             const SizedBox(width: 8),
-            _chip(c, label: 'Risk', idx: 3),
+            _chip(c, label: tr('nav.risk'), idx: 3),
           ]),
         ),
         const SizedBox(height: 16),
         if (list.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 60),
+          Padding(
+            padding: const EdgeInsets.only(top: 60),
             child: EmptyState(
               icon: Icons.notifications_off_rounded,
-              text: 'Bildirishnoma yo\'q',
+              text: tr('notif.empty'),
               color: C.brand,
             ),
           )

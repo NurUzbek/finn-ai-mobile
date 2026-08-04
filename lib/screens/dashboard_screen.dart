@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 import 'subscription_screen.dart';
 import 'chat_screen.dart';
@@ -18,9 +19,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _greet() {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Xayrli tong';
-    if (h < 18) return 'Xayrli kun';
-    return 'Xayrli kech';
+    if (h < 12) return tr('greet.morning');
+    if (h < 18) return tr('greet.day');
+    return tr('greet.evening');
   }
 
   /// Ism birinchi so'zi; agar telefon raqami bo'lsa "FINN".
@@ -83,16 +84,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     StaggerIn(index: 4, child: _alert(overdue, penalty)),
                   StaggerIn(
                       index: 5,
-                      child: _eyebrow('Moliyaviy holat',
-                          action: 'Batafsil', onAction: () => homeTab.value = 3)),
+                      child: _eyebrow(tr('dash.financialStatus'),
+                          action: tr('common.details'), onAction: () => homeTab.value = 3)),
                   StaggerIn(index: 6, child: _financials(debt, penalty)),
                   StaggerIn(
                       index: 7,
-                      child: _eyebrow('Firmalaringiz',
-                          action: orgCount > 0 ? 'Barchasi' : null,
+                      child: _eyebrow(tr('dash.yourFirms'),
+                          action: orgCount > 0 ? tr('common.all') : null,
                           onAction: () => homeTab.value = 1)),
                   StaggerIn(index: 8, child: _orgSection(orgs)),
-                  StaggerIn(index: 9, child: _eyebrow('Tavsiya')),
+                  StaggerIn(index: 9, child: _eyebrow(tr('dash.recommendation'))),
                   StaggerIn(index: 10, child: _ai(overdue, penalty)),
                 ],
               );
@@ -111,10 +112,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(children: [
               Icon(Icons.cloud_off_rounded, size: 44, color: C.muted(context, .35)),
               const SizedBox(height: 12),
-              Text('Server bilan aloqa yo\'q',
+              Text(tr('state.noConnection'),
                   style: TextStyle(color: C.muted(context, .6))),
               const SizedBox(height: 16),
-              FilledButton(onPressed: _refresh, child: const Text('Qayta urinish')),
+              FilledButton(onPressed: _refresh, child: Text(tr('common.retry'))),
             ]),
           ),
         ],
@@ -236,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('UMUMIY BALANS',
+                      Text(tr('dash.totalBalance'),
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -258,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     letterSpacing: -1.6,
                                     height: 1)),
                             TextSpan(
-                                text: '  so\'m',
+                                text: '  ${tr('common.som')}',
                                 style: TextStyle(
                                     color: Colors.white.withValues(alpha: .68),
                                     fontSize: 14,
@@ -272,9 +273,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: Colors.white.withValues(alpha: .18)),
                       const SizedBox(height: 17),
                       Row(children: [
-                        _bstat('$orgs', 'Tashkilot'),
-                        _bstat('$clean', 'Toza'),
-                        _bstat('$overdue', 'Kechikkan'),
+                        _bstat('$orgs', tr('dash.orgs')),
+                        _bstat('$clean', tr('dash.clean')),
+                        _bstat('$overdue', tr('dash.overdue')),
                       ]),
                     ]),
               ),
@@ -318,14 +319,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                    'Bepul rejim — 3 tadan ortiq firma kuzatilmaydi',
+                    tr('dash.freePlan'),
                     style: TextStyle(
                         fontSize: 12.5,
                         height: 1.4,
                         color: C.onAmb(context))),
               ),
               const SizedBox(width: 10),
-              Text('Kengaytirish',
+              Text(tr('common.expand'),
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -361,7 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('$overdue ta to\'lov kechikkan',
+                      Text('$overdue ${tr('dash.overduePayments')}',
                           style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -373,13 +374,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: TextStyle(
                               fontSize: 12.5, color: C.muted(context, .6)),
                           children: [
-                            const TextSpan(text: 'Jami '),
+                            TextSpan(text: '${tr('dash.total')} '),
                             TextSpan(
                                 text: '+${money(penalty)}',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: C.onRed(context))),
-                            const TextSpan(text: ' so\'m penya'),
+                            TextSpan(text: ' ${tr('common.som')} ${tr('dash.penalty')}'),
                           ],
                         ),
                       ),
@@ -448,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _card(
           onTap: () => homeTab.value = 3,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _lab('Umumiy qarz'),
+            _lab(tr('dash.totalDebt')),
             const SizedBox(height: 10),
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: debt.toDouble()),
@@ -480,7 +481,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 15),
             _barChart(),
             const SizedBox(height: 12),
-            Text('Oxirgi 9 oy · so\'nggi oylarda o\'sish',
+            Text(tr('dash.chartCaption'),
                 style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
           ]),
         ),
@@ -493,7 +494,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _lab('Jami penya'),
+                    _lab(tr('dash.totalPenalty')),
                     const SizedBox(height: 9),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -507,7 +508,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: C.text(context))),
                     ),
                     const SizedBox(height: 8),
-                    Text('so\'m',
+                    Text(tr('common.som'),
                         style:
                             TextStyle(fontSize: 12, color: C.onAmb(context))),
                   ]),
@@ -521,7 +522,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _lab('O\'rtacha risk'),
+                    _lab(tr('dash.avgRisk')),
                     const SizedBox(height: 9),
                     Text('—',
                         style: TextStyle(
@@ -532,7 +533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: C.muted(context, .55))),
                     const SizedBox(height: 8),
                     Row(children: [
-                      Text('Batafsil',
+                      Text(tr('common.details'),
                           style: TextStyle(
                               fontSize: 12, color: C.muted(context, .45))),
                       const SizedBox(width: 3),
@@ -577,10 +578,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ─────────────────────────── QUICK ACTIONS ───────────────────────────
   Widget _quickActions() {
     final items = <(IconData, String, Color, int)>[
-      (Icons.apartment_rounded, 'Firmalar', C.brand, 1),
-      (Icons.account_balance_rounded, 'Soliq', C.red, 3),
-      (Icons.speed_rounded, 'Risk', C.green, 2),
-      (Icons.notifications_rounded, 'Xabar', C.violet, 4),
+      (Icons.apartment_rounded, tr('nav.orgs'), C.brand, 1),
+      (Icons.account_balance_rounded, tr('nav.tax'), C.red, 3),
+      (Icons.speed_rounded, tr('nav.risk'), C.green, 2),
+      (Icons.notifications_rounded, tr('nav.notif'), C.violet, 4),
     ];
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -634,13 +635,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Firma qo\'shing',
+              Text(tr('dash.addFirm'),
                   style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w600,
                       color: C.text(context))),
               const SizedBox(height: 2),
-              Text('Soliq holatini kuzatishni boshlang',
+              Text(tr('dash.startTracking'),
                   style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
             ]),
           ),
@@ -716,7 +717,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               decoration: BoxDecoration(
                   color: C.tint(context, C.green),
                   borderRadius: BorderRadius.circular(20)),
-              child: Text('Toza',
+              child: Text(tr('dash.clean'),
                   style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -731,7 +732,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       letterSpacing: -.3,
                       color: C.red)),
               const SizedBox(height: 1),
-              Text('qarz',
+              Text(tr('dash.debt'),
                   style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
             ]),
         ]),
@@ -790,7 +791,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           size: 16,
                           color: Colors.white.withValues(alpha: .8)),
                       const SizedBox(width: 9),
-                      Text('FINN AI',
+                      Text(tr('dash.finnAi'),
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -800,8 +801,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 15),
                     Text(
                         overdue > 0
-                            ? 'Kechikkan to\'lovlar penyani oshirmoqda'
-                            : 'Moliyaviy holatingiz barqaror',
+                            ? tr('dash.aiOverdueTitle')
+                            : tr('dash.aiStableTitle'),
                         style: const TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.w600,
@@ -817,20 +818,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Colors.white.withValues(alpha: .62)),
                         children: overdue > 0
                             ? [
-                                const TextSpan(text: 'Jami '),
+                                TextSpan(text: '${tr('dash.total')} '),
                                 TextSpan(
                                     text: '+${money(penalty)}',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w500,
                                         color: Colors.white)),
-                                const TextSpan(
+                                TextSpan(
                                     text:
-                                        ' so\'m penya. Eng yaqin muddatni bugun yoping — o\'sish to\'xtaydi.'),
+                                        ' ${tr('common.som')} ${tr('dash.penalty')}. ${tr('dash.aiOverdueBody')}'),
                               ]
                             : [
-                                const TextSpan(
-                                    text:
-                                        'Jiddiy risk aniqlanmadi. Savolingiz bo\'lsa — Finn AI konsultantdan so\'rang.'),
+                                TextSpan(
+                                    text: tr('dash.aiStableBody')),
                               ],
                       ),
                     ),
@@ -845,9 +845,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Colors.white.withValues(alpha: .94),
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          child: const Center(
-                            child: Text('Ko\'rib chiqish',
-                                style: TextStyle(
+                          child: Center(
+                            child: Text(tr('common.review'),
+                                style: const TextStyle(
                                     color: Color(0xFF0A0F1E),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600)),

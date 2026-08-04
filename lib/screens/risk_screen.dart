@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../services/plan.dart';
 import '../widgets/common.dart';
 import '../widgets/locked.dart';
@@ -42,19 +43,18 @@ class _RiskScreenState extends State<RiskScreen> {
     super.dispose();
   }
 
-  static const _locked = LockedFeature(
-    icon: Icons.shield_outlined,
-    title: 'Risk tahlili',
-    description:
-        'Tashkilotingizning soliq, moliyaviy va hujjat risklarini 100 ballik shkalada baholaydi.',
-    perks: [
-      'Umumiy risk balli va rangli zona',
-      'Soliq intizomi va qarzdorlik tahlili',
-      'E-faktura va kontragent risklari',
-      'Hisob bloklash xavfi haqida ogohlantirish',
-      'PDF hisobot yuklab olish',
-    ],
-  );
+  LockedFeature get _locked => LockedFeature(
+        icon: Icons.shield_outlined,
+        title: tr('risk.title'),
+        description: tr('risk.locked.desc'),
+        perks: [
+          tr('risk.locked.perk1'),
+          tr('risk.locked.perk2'),
+          tr('risk.locked.perk3'),
+          tr('risk.locked.perk4'),
+          tr('risk.locked.perk5'),
+        ],
+      );
 
   /// Risk darajasiga mos rang: past → yashil, o'rta → sariq, yuqori → qizil.
   /// Ball qanchalik past bo'lsa, shunchalik yaxshi.
@@ -65,7 +65,7 @@ class _RiskScreenState extends State<RiskScreen> {
       score <= 30 ? C.onGrn(c) : (score <= 60 ? C.onAmb(c) : C.onRed(c));
 
   String _levelLabel(int score) =>
-      score <= 30 ? 'Past risk' : (score <= 60 ? "O'rta risk" : 'Yuqori risk');
+      score <= 30 ? tr('risk.level.low') : (score <= 60 ? tr('risk.level.mid') : tr('risk.level.high'));
 
   @override
   Widget build(BuildContext context) {
@@ -77,10 +77,10 @@ class _RiskScreenState extends State<RiskScreen> {
 
     return SafeArea(
       child: Column(children: [
-        const ScreenHeader(
-          title: 'Risk tahlili',
+        ScreenHeader(
+          title: tr('risk.title'),
           icon: Icons.shield_outlined,
-          subtitle: 'Soliq tekshiruvi ehtimoli',
+          subtitle: tr('risk.subtitle'),
         ),
         Expanded(
           child: FutureBuilder<Map<String, dynamic>>(
@@ -95,13 +95,13 @@ class _RiskScreenState extends State<RiskScreen> {
               if (d['locked'] == true) return _locked;
 
               if (d['ok'] != true) {
-                return EmptyState(icon: Icons.cloud_off_rounded, color: C.red, text: d['message'] ?? 'Ma\'lumot olinmadi');
+                return EmptyState(icon: Icons.cloud_off_rounded, color: C.red, text: d['message'] ?? tr('risk.noData'));
               }
 
               final orgs = ((d['organizations'] ?? []) as List).cast<Map<String, dynamic>>();
               final a = d['analysis'] as Map<String, dynamic>?;
               if (a == null || orgs.isEmpty) {
-                return const EmptyState(icon: Icons.business_outlined, text: 'Avval tashkilot qo\'shing');
+                return EmptyState(icon: Icons.business_outlined, text: tr('risk.empty.noOrg'));
               }
 
               final selectedId = _org ?? (d['selected'] as int?) ?? orgs.first['id'] as int;
@@ -128,17 +128,17 @@ class _RiskScreenState extends State<RiskScreen> {
                     StaggerIn(
                       index: 1,
                       child: Row(children: [
-                        Expanded(child: StatCard(label: 'Jiddiy risk', value: '${a['flags'] ?? 0}', icon: Icons.error_outline_rounded, color: C.red)),
+                        Expanded(child: StatCard(label: tr('risk.stat.flags'), value: '${a['flags'] ?? 0}', icon: Icons.error_outline_rounded, color: C.red)),
                         const SizedBox(width: 12),
-                        Expanded(child: StatCard(label: 'Ogohlantirish', value: '${a['warns'] ?? 0}', icon: Icons.warning_amber_rounded, color: C.amber)),
+                        Expanded(child: StatCard(label: tr('risk.stat.warns'), value: '${a['warns'] ?? 0}', icon: Icons.warning_amber_rounded, color: C.amber)),
                       ]),
                     ),
 
                     const SizedBox(height: 22),
-                    _eyebrow(context, 'Aniqlangan risklar'),
+                    _eyebrow(context, tr('risk.detected')),
                     const SizedBox(height: 10),
                     if (risks.isEmpty)
-                      const EmptyState(icon: Icons.verified_outlined, color: C.green, text: 'Aniqlangan risk yo\'q')
+                      EmptyState(icon: Icons.verified_outlined, color: C.green, text: tr('risk.empty.noRisk'))
                     else
                       ...risks.asMap().entries.map(
                         (e) => StaggerIn(index: 2 + e.key, child: _riskRow(context, e.value)),
@@ -182,7 +182,7 @@ class _RiskScreenState extends State<RiskScreen> {
               Text('$score',
                   style: TextStyle(fontSize: 46, fontWeight: FontWeight.w700, height: 1, letterSpacing: -1, color: c)),
               const SizedBox(height: 4),
-              Text('100 balldan', style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
+              Text(tr('risk.outOf100'), style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
             ]),
           ]),
         ),

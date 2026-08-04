@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/api.dart';
 import '../services/plan.dart';
+import '../services/i18n.dart';
 
 /// Native tarif/to'lov ekrani — WebView emas. Tariflar API'dan (`/plans`),
 /// to'lov `/checkout` orqali yaratiladi. Faqat provayder to'lov sahifasi
@@ -44,10 +45,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           _loading = false;
         });
       } else {
-        setState(() { _error = r['message']?.toString() ?? 'Xatolik'; _loading = false; });
+        setState(() { _error = r['message']?.toString() ?? tr('state.error'); _loading = false; });
       }
     } catch (e) {
-      setState(() { _error = 'Internet aloqasi yo\'q'; _loading = false; });
+      setState(() { _error = tr('state.noConnection'); _loading = false; });
     }
   }
 
@@ -82,7 +83,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         backgroundColor: C.bg(context),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Tariflar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(tr('sub.title'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         actions: [IconButton(onPressed: _load, icon: Icon(Icons.refresh, color: C.muted(context, .7)))],
       ),
       body: _loading
@@ -104,7 +105,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           )),
                       const SizedBox(height: 6),
                       Text(
-                        'Istalgan vaqtda bekor qilasiz. To\'lov Payme, Click yoki Uzum orqali.',
+                        tr('sub.footer'),
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, height: 1.6, color: C.muted(context, .5)),
                       ),
@@ -118,9 +119,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off, size: 44, color: C.muted(context, .4)),
           const SizedBox(height: 12),
-          Text(_error ?? 'Xatolik', style: TextStyle(color: C.muted(context, .7))),
+          Text(_error ?? tr('state.error'), style: TextStyle(color: C.muted(context, .7))),
           const SizedBox(height: 16),
-          FilledButton(onPressed: _load, child: const Text('Qayta urinish')),
+          FilledButton(onPressed: _load, child: Text(tr('common.retry'))),
         ]),
       );
 
@@ -142,12 +143,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         Container(
           width: 46, height: 46,
           decoration: BoxDecoration(color: C.cyan.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)),
-          child: Icon(Icons.workspace_premium_outlined, color: C.cyan, size: 24),
+          child: const Icon(Icons.workspace_premium_outlined, color: C.cyan, size: 24),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Joriy tarif', style: TextStyle(fontSize: 12, color: C.muted(context, .6), fontWeight: FontWeight.w600)),
+            Text(tr('sub.currentPlan'), style: TextStyle(fontSize: 12, color: C.muted(context, .6), fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
             Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: C.text(context), letterSpacing: -.5)),
           ]),
@@ -156,7 +157,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(color: C.amber.withValues(alpha: .16), borderRadius: BorderRadius.circular(999)),
-            child: Text('$days kun', style: TextStyle(color: C.amber, fontWeight: FontWeight.w800, fontSize: 12)),
+            child: Text('$days ${tr('sub.days')}', style: const TextStyle(color: C.amber, fontWeight: FontWeight.w800, fontSize: 12)),
           ),
       ]),
     );
@@ -180,7 +181,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.lock_outline_rounded, size: 13, color: C.muted(context, .4)),
                     const SizedBox(width: 5),
-                    Text('Yillik · Tez kunda',
+                    Text('${tr('sub.yearly')} · ${tr('common.comingSoon')}',
                         style: TextStyle(color: C.muted(context, .4), fontWeight: FontWeight.w600, fontSize: 13)),
                   ])
                 : Text(label, style: TextStyle(
@@ -194,19 +195,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(color: C.fill(context, .05), borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [seg('monthly', 'Oylik'), seg('yearly', 'Yillik', locked: true)]),
+      child: Row(children: [seg('monthly', tr('sub.monthly')), seg('yearly', tr('sub.yearly'), locked: true)]),
     );
   }
 
   /// Tariflar bo'yicha ko'rsatiladigan xususiyatlar matritsasi (belgi/xoch).
+  /// (feature_flag, tarjima_kaliti) — matn tr() orqali build vaqtida hal qilinadi.
   static const _matrix = [
-    ('orgs', 'Tashkilotlar kuzatuvi'),
-    ('risk', 'Risk balli va tekshiruv prognozi'),
-    ('ai', 'Finn AI tavsiyalari'),
-    ('counterparty', 'Kontragent tekshiruvi'),
-    ('cadastre', 'Kadastr va mulk ma\'lumotlari'),
-    ('audit', 'Audit jurnali va hisobotlar'),
-    ('team', 'Jamoa uchun ko\'p foydalanuvchi'),
+    ('orgs', 'sub.feat.orgs'),
+    ('risk', 'sub.feat.risk'),
+    ('ai', 'sub.feat.ai'),
+    ('counterparty', 'sub.feat.counterparty'),
+    ('cadastre', 'sub.feat.cadastre'),
+    ('audit', 'sub.feat.audit'),
+    ('team', 'sub.feat.team'),
   ];
 
   Widget _planCard(Map<String, dynamic> p) {
@@ -241,7 +243,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(20)),
-                  child: Text('Joriy', style: TextStyle(color: C.onGrn(context), fontWeight: FontWeight.w600, fontSize: 11.5)),
+                  child: Text(tr('sub.current'), style: TextStyle(color: C.onGrn(context), fontWeight: FontWeight.w600, fontSize: 11.5)),
                 ),
             ]),
             const SizedBox(height: 10),
@@ -250,7 +252,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: C.text(context),
                       letterSpacing: -1.4, fontFeatures: const [FontFeature.tabularFigures()])),
               const SizedBox(width: 6),
-              Text('so\'m/oy', style: TextStyle(fontSize: 13, color: C.muted(context, .5), fontWeight: FontWeight.w500)),
+              Text(tr('sub.somPerMonth'), style: TextStyle(fontSize: 13, color: C.muted(context, .5), fontWeight: FontWeight.w500)),
             ]),
             if ((p['description']?.toString() ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -272,7 +274,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         size: 12, color: has ? C.onGrn(context) : C.muted(context, .35)),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(m.$2,
+                  Expanded(child: Text(tr(m.$2),
                       style: TextStyle(fontSize: 13.5, height: 1.3,
                           color: has ? C.muted(context, .8) : C.muted(context, .4)))),
                 ]),
@@ -284,23 +286,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               child: isCurrent
                   ? DecoratedBox(
                       decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
-                      child: Center(child: Text('Joriy rejim',
+                      child: Center(child: Text(tr('sub.currentMode'),
                           style: TextStyle(color: C.muted(context, .55), fontWeight: FontWeight.w600, fontSize: 14.5))),
                     )
                   : (popular || trial)
-                      ? _gradBtn(trial ? '14 kun bepul sinash' : 'Tanlash', () => _openPaymentSheet(p))
+                      ? _gradBtn(trial ? tr('sub.trial14') : tr('common.select'), () => _openPaymentSheet(p))
                       : GestureDetector(
                           onTap: _busy ? null : () => _openPaymentSheet(p),
                           child: DecoratedBox(
                             decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
-                            child: Center(child: Text('Tanlash',
+                            child: Center(child: Text(tr('common.select'),
                                 style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600, fontSize: 14.5))),
                           ),
                         ),
             ),
             if (trial) ...[
               const SizedBox(height: 10),
-              Center(child: Text('Karta talab qilinmaydi',
+              Center(child: Text(tr('sub.noCard'),
                   style: TextStyle(fontSize: 11.5, color: C.muted(context, .5)))),
             ],
           ]),
@@ -314,8 +316,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 gradient: C.grad,
                 borderRadius: BorderRadius.only(bottomLeft: Radius.circular(9), bottomRight: Radius.circular(9)),
               ),
-              child: const Text('KO\'P TANLANADI',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: .8)),
+              child: Text(tr('sub.popular'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: .8)),
             ),
           ),
       ]),
@@ -339,9 +341,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: C.muted(context, .2), borderRadius: BorderRadius.circular(4)))),
             const SizedBox(height: 16),
-            Text('To\'lov usulini tanlang', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: C.text(context))),
+            Text(tr('sub.choosePayment'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: C.text(context))),
             const SizedBox(height: 4),
-            Text('${plan['name']} · ${_fmt((_cycle == 'yearly' ? plan['yearly'] : plan['monthly']) as num)} so\'m',
+            Text('${plan['name']} · ${_fmt((_cycle == 'yearly' ? plan['yearly'] : plan['monthly']) as num)} ${tr('common.som')}',
                 style: TextStyle(fontSize: 13, color: C.muted(context, .6))),
             const SizedBox(height: 16),
             ...methods.map((m) => Padding(
@@ -380,12 +382,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     try {
       final r = await Api.checkout(plan: plan['slug'].toString(), cycle: _cycle, provider: provider);
       if (r['ok'] != true) {
-        _snack(r['message']?.toString() ?? 'To\'lovni yaratib bo\'lmadi');
+        _snack(r['message']?.toString() ?? tr('sub.paymentFailed'));
         return;
       }
       final url = r['url']?.toString();
       if (url == null || url.isEmpty) {
-        _snack('To\'lov havolasi olinmadi');
+        _snack(tr('sub.linkFailed'));
         return;
       }
       if (provider == 'uzum' || provider == 'paynet') {
@@ -394,7 +396,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         if (uri != null && await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         } else {
-          _snack('${provider == 'uzum' ? 'Uzum' : 'Paynet'} ilovasi topilmadi');
+          _snack('${provider == 'uzum' ? 'Uzum' : 'Paynet'} ${tr('sub.appNotFound')}');
         }
       } else {
         // Payme/Click/bank — minimal to'lov sahifasi (WebView, faqat provayder)
@@ -404,12 +406,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         );
         if (paid == true) {
           await PlanState.i.load();
-          _snack('To\'lov qabul qilindi ✓', ok: true);
+          _snack('${tr('sub.paid')} ✓', ok: true);
           _load();
         }
       }
     } catch (e) {
-      _snack('Xatolik yuz berdi');
+      _snack(tr('state.error'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -464,7 +466,7 @@ class _PaymentPageState extends State<_PaymentPage> {
       appBar: AppBar(
         backgroundColor: C.bg(context),
         elevation: 0,
-        title: const Text('To\'lov', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        title: Text(tr('sub.payment'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         bottom: _progress < 100
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(2),

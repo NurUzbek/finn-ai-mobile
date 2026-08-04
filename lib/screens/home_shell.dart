@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../services/i18n.dart';
 import '../services/api.dart';
 import '../services/plan.dart';
 import 'login_screen.dart';
@@ -92,12 +93,12 @@ class _HomeShellState extends State<HomeShell> {
       );
 
   static const _nav = [
-    (Icons.dashboard_rounded, 'Asosiy'),
-    (Icons.apartment_rounded, 'Firmalar'),
-    (Icons.speed_rounded, 'Risk'),
-    (Icons.account_balance_rounded, 'Soliq'),
-    (Icons.notifications_rounded, 'Xabar'),
-    (Icons.person_rounded, 'Profil'),
+    (Icons.dashboard_rounded, 'nav.home'),
+    (Icons.apartment_rounded, 'nav.orgs'),
+    (Icons.speed_rounded, 'nav.risk'),
+    (Icons.account_balance_rounded, 'nav.tax'),
+    (Icons.notifications_rounded, 'nav.notif'),
+    (Icons.person_rounded, 'nav.profile'),
   ];
 
   Widget _navIcon(IconData ic, bool active, bool locked) {
@@ -145,7 +146,7 @@ class _HomeShellState extends State<HomeShell> {
                     _navIcon(_nav[i].$1, active, locked),
                     if (active) Flexible(child: Padding(
                       padding: const EdgeInsets.only(left: 7),
-                      child: Text(_nav[i].$2, maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
+                      child: Text(tr(_nav[i].$2), maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5, letterSpacing: -.2)),
                     )),
                   ])),

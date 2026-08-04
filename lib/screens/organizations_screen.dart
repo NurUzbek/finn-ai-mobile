@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 
 /// "Mening tashkilotlarim" moduli — kengayuvchi firma kartalari (TZ 2-jadval).
@@ -43,11 +44,11 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                 _chips(context, total, debtorCount, cleanCount),
                 const SizedBox(height: 16),
                 if (orgs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 40),
                     child: EmptyState(
                       icon: Icons.apartment_rounded,
-                      text: 'Hozircha tashkilot yo\'q',
+                      text: tr('org.empty'),
                       color: C.brand,
                     ),
                   )
@@ -56,7 +57,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                     padding: const EdgeInsets.only(top: 40),
                     child: EmptyState(
                       icon: _filter == 2 ? Icons.verified_outlined : Icons.error_outline_rounded,
-                      text: _filter == 2 ? 'Toza firma topilmadi' : 'Qarzdor firma yo\'q',
+                      text: _filter == 2 ? tr('org.noCleanFound') : tr('org.noDebtor'),
                       color: C.brand,
                     ),
                   )
@@ -90,15 +91,15 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Tashkilotlarim',
+              Text(tr('org.title'),
                   style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4, color: C.text(c))),
-              Text('$total ta firma · $clean tasi toza',
+              Text('$total ${tr('org.firmsWord')} · $clean ${tr('org.cleanWord')}',
                   style: TextStyle(fontSize: 12, color: C.muted(c, .5))),
             ]),
           ),
           _AddButton(onTap: () {
             ScaffoldMessenger.of(c).showSnackBar(
-              const SnackBar(content: Text('Tez orada'), duration: Duration(seconds: 2)),
+              SnackBar(content: Text(tr('org.comingSoon')), duration: const Duration(seconds: 2)),
             );
           }),
         ],
@@ -108,11 +109,11 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
   Widget _chips(BuildContext c, int total, int debtor, int clean) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(children: [
-          _chip(c, 0, 'Hammasi', total, null),
+          _chip(c, 0, tr('common.all'), total, null),
           const SizedBox(width: 8),
-          _chip(c, 1, 'Qarzdor', debtor, C.red),
+          _chip(c, 1, tr('org.debtor'), debtor, C.red),
           const SizedBox(width: 8),
-          _chip(c, 2, 'Toza', clean, C.green),
+          _chip(c, 2, tr('org.clean'), clean, C.green),
         ]),
       );
 
@@ -212,11 +213,11 @@ class _OrgRowState extends State<_OrgRow> {
     final director = _s(o['director']);
     final account = _s(o['account']);
     final bank = _s(o['bank']);
-    if (director != null) rows.add(['Rahbar', director]);
-    if (account != null) rows.add(['Hisob raqam', account]);
-    if (bank != null) rows.add(['Bank', bank]);
+    if (director != null) rows.add([tr('org.director'), director]);
+    if (account != null) rows.add([tr('org.account'), account]);
+    if (bank != null) rows.add([tr('org.bank'), bank]);
     if (rows.isEmpty) {
-      rows.add(['Manzil', _s(o['address']) ?? 'Ma\'lumot yo\'q']);
+      rows.add([tr('org.address'), _s(o['address']) ?? tr('org.noData')]);
     }
 
     return Container(
@@ -253,7 +254,7 @@ class _OrgRowState extends State<_OrgRow> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.text(c))),
                   const SizedBox(height: 2),
-                  Text('STIR ${_s(o['stir']) ?? '—'}',
+                  Text('${tr('org.stir')} ${_s(o['stir']) ?? '—'}',
                       style: TextStyle(fontSize: 11.5, color: C.muted(c, .42))),
                 ]),
               ),
@@ -265,7 +266,7 @@ class _OrgRowState extends State<_OrgRow> {
                     color: C.tint(c, C.green),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text('Toza',
+                  child: Text(tr('org.clean'),
                       style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: C.onGrn(c))),
                 )
               else
@@ -273,7 +274,7 @@ class _OrgRowState extends State<_OrgRow> {
                   Text(money(debt),
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: C.red)),
                   const SizedBox(height: 2),
-                  Text('penya ${money(penalty)}',
+                  Text('${tr('org.penalty')} ${money(penalty)}',
                       style: TextStyle(fontSize: 11, color: C.muted(c, .42))),
                 ]),
               const SizedBox(width: 8),
