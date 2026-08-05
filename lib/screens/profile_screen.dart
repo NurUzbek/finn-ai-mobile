@@ -8,6 +8,7 @@ import '../widgets/common.dart';
 import 'login_screen.dart';
 import 'pin_screen.dart';
 import 'subscription_screen.dart';
+import 'identity_screen.dart';
 
 /// Profil — hisob, tarif va sozlamalar (mavzu, til, xavfsizlik).
 /// Dizayn: finn-app-screens.html #v-profil. Ma'lumot: `Api.me()`.
@@ -187,6 +188,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // ── Tarif kartasi ──
                     StaggerIn(index: 1, child: _planCard(context, planTitle, planSub)),
+                    const SizedBox(height: 11),
+
+                    // ── Shaxsni tasdiqlash (OneID) ──
+                    StaggerIn(index: 1, child: _identityCard(context, (d['identity'] as Map?)?['verified'] == true)),
 
                     // ── Sozlamalar ──
                     StaggerIn(index: 2, child: _eyebrow(context, tr('profile.secSettings'))),
@@ -303,6 +308,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ]),
       );
+
+  Widget _identityCard(BuildContext context, bool verified) {
+    final c = verified ? C.green : C.amber;
+    final on = verified ? C.onGrn(context) : C.onAmb(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IdentityScreen())),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40, height: 40, alignment: Alignment.center,
+            decoration: BoxDecoration(color: C.tint(context, c), borderRadius: BorderRadius.circular(13)),
+            child: Icon(verified ? Icons.verified_rounded : Icons.shield_outlined, color: on, size: 21),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('ident.profileRow'), style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: C.text(context))),
+            const SizedBox(height: 2),
+            Text(tr('ident.sub'), style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: C.tint(context, c), borderRadius: BorderRadius.circular(20)),
+            child: Text(verified ? tr('ident.statusVerified') : tr('ident.statusIncomplete'),
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: on)),
+          ),
+          const SizedBox(width: 6),
+          Icon(Icons.chevron_right_rounded, size: 18, color: C.muted(context, .3)),
+        ]),
+      ),
+    );
+  }
 
   Widget _eyebrow(BuildContext c, String t) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 20, 4, 9),

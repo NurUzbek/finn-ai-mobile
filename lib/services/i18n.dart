@@ -11,6 +11,7 @@ import '../i18n/notifications_tr.dart' as notifications;
 import '../i18n/profile_tr.dart' as profile;
 import '../i18n/subscription_tr.dart' as subscription;
 import '../i18n/login_tr.dart' as login;
+import '../i18n/identity_tr.dart' as identity;
 
 /// Ilova tili — foydalanuvchi tanlovi qurilmada saqlanadi.
 /// Singleton (ThemeState kabi): notifyListeners bilan butun ilova qayta quriladi.
@@ -51,6 +52,7 @@ class I18n extends ChangeNotifier {
     ...profile.tr,
     ...subscription.tr,
     ...login.tr,
+    ...identity.tr,
   };
 
   /// Kalitni joriy tilga tarjima qiladi. Topilmasa — uz, u ham bo'lmasa — kalit.
