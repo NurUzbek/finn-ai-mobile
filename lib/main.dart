@@ -22,24 +22,25 @@ void main() {
 /// FINN AI brend ranglari + mavzuga bog'liq (dark/light) yordamchi ranglar.
 /// Brend akssent ranglari (blue/cyan/green/amber/red/violet) ikkala mavzuda ham o'zgarmaydi.
 class C {
-  // ── Brend akssentlari (o'zgarmas) ──
+  // ── Brend akssentlari (spetsifikatsiya 2.1 — o'zgarmas) ──
   static const navy = Color(0xFF0A2540);
-  static const blue = Color(0xFF1A56DB);
+  static const blue = Color(0xFF246BFD);   // spec: blue
   static const sky = Color(0xFF3B82F6);
-  static const cyan = Color(0xFF22D3EE);
-  static const green = Color(0xFF10B981);
-  static const amber = Color(0xFFF59E0B);
-  static const red = Color(0xFFEF4444);
-  static const violet = Color(0xFF8B5CF6);
+  static const cyan = Color(0xFF25C4E8);   // spec: cyan
+  static const green = Color(0xFF12B981);  // spec: green
+  static const amber = Color(0xFFE8912A);  // spec: amber
+  static const red = Color(0xFFE8394E);    // spec: red
+  static const violet = Color(0xFF8B5CF6); // spec: purple
 
-  // ── Qorong'i palitra ──
-  static const bgDark = Color(0xFF050D1A);
-  static const cardDark = Color(0xFF0F1B2E);
+  // ── Qorong'i palitra (spec 2.3) ──
+  static const bgDark = Color(0xFF070A12);
+  static const cardDark = Color(0xFF0F1520);
 
-  // ── Yorug' palitra ──
-  static const bgLight = Color(0xFFF4F7FB);
+  // ── Yorug' palitra (spec 2.2) ──
+  static const bgLight = Color(0xFFF7F9FC);
   static const cardLight = Color(0xFFFFFFFF);
-  static const inkLight = Color(0xFF0A1A33);
+  static const inkLight = Color(0xFF080D1C);  // spec 2.2: ink
+  static const inkDark = Color(0xFFF0F3F9);   // spec 2.3: ink
 
   // ── Mavzuga bog'liq yordamchilar ──
   static bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
@@ -50,8 +51,8 @@ class C {
   /// Karta / sirt rangi.
   static Color card(BuildContext c) => isDark(c) ? cardDark : cardLight;
 
-  /// Sirt ustidagi asosiy rang (matn tayanchi): qorong'ida oq, yorug'da to'q ko'k.
-  static Color ink(BuildContext c) => isDark(c) ? Colors.white : inkLight;
+  /// Sirt ustidagi asosiy rang (matn tayanchi): spec 2.2/2.3 ink.
+  static Color ink(BuildContext c) => isDark(c) ? inkDark : inkLight;
 
   /// Asosiy matn rangi.
   static Color text(BuildContext c) => ink(c);
