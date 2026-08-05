@@ -1,23 +1,15 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
 import '../services/api.dart';
-import '../services/i18n.dart';
 import '../widgets/common.dart';
-import 'subscription_screen.dart';
-import 'chat_screen.dart';
 import 'financial_screen.dart';
-import 'wallet_screen.dart';
+import 'chat_screen.dart';
 import 'currency_screen.dart';
 import 'documents_screen.dart';
 import 'didox_screen.dart';
-import 'reports_screen.dart';
-import 'calendar_screen.dart';
-import 'employees_screen.dart';
-import 'team_screen.dart';
 import 'counterparty_screen.dart';
-import 'audit_report_screen.dart';
-import 'enforcement_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,26 +21,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late Future<Map<String, dynamic>> _f = Api.dashboard();
   Future<void> _refresh() async => setState(() => _f = Api.dashboard());
 
-  String _greet() {
-    final h = DateTime.now().hour;
-    if (h < 12) return tr('greet.morning');
-    if (h < 18) return tr('greet.day');
-    return tr('greet.evening');
-  }
-
-  /// Ism birinchi so'zi; agar telefon raqami bo'lsa "FINN".
-  String _firstName(String raw) {
-    final name = raw.trim();
-    if (name.isEmpty) return 'FINN';
-    final first = name.split(RegExp(r'\s+')).first;
-    if (RegExp(r'^[+\d]').hasMatch(first)) return 'FINN';
-    return first;
-  }
-
-  void _openChat() =>
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
-  void _openSub() =>
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionScreen()));
+  void _push(Widget w) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               final s = (d['stats'] as Map?) ?? {};
               final orgs = ((d['organizations'] as List?) ?? []).cast<dynamic>();
-              final first = _firstName((d['user_name'] ?? '').toString());
               final totalBalance = orgs.fold<double>(
                   0, (a, o) => a + ((o['balance'] ?? 0) as num).toDouble());
               final orgCount = orgs.length;
@@ -77,46 +50,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final clean = (orgCount - overdue).clamp(0, orgCount);
               final debt = (s['debts_total'] ?? 0) as num;
               final penalty = (s['penalty_total'] ?? 0) as num;
-              final unread = ((s['unread_notifications'] ?? 0) as num).toInt();
-              final recent = ((d['recent'] as List?) ?? []).cast<dynamic>();
+              final daily = (d['daily'] ?? 0) as num;
+
+              final cf = (d['cashflow'] as Map?) ?? {};
+              final income = (cf['income'] ?? 0) as num;
+              final expense = (cf['expense'] ?? 0) as num;
+              final net = (cf['net'] ?? (income - expense)) as num;
+
+              final deadlines = ((d['deadlines'] as List?) ?? []).cast<dynamic>();
+              final risk = d['risk'] as Map?;
+
+              final pad = 110 + MediaQuery.of(context).viewPadding.bottom;
 
               return ListView(
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
-                padding: EdgeInsets.fromLTRB(
-                    20, 4, 20, 110 + MediaQuery.of(context).viewPadding.bottom),
+                padding: EdgeInsets.fromLTRB(20, 6, 20, pad),
                 children: [
-                  StaggerIn(index: 0, child: _header(first, unread)),
-                  const SizedBox(height: 14),
+                  StaggerIn(index: 0, child: _header()),
+                  const SizedBox(height: 18),
                   StaggerIn(
                       index: 1,
-                      child: _balance(totalBalance, orgCount, clean, overdue)),
-                  StaggerIn(index: 2, child: _quickActions()),
-                  StaggerIn(index: 3, child: _upsell()),
-                  if (overdue > 0)
-                    StaggerIn(index: 4, child: _alert(overdue, penalty)),
+                      child: _hero(totalBalance, orgCount, clean, overdue)),
+                  const SizedBox(height: 11),
+                  StaggerIn(index: 2, child: _live(penalty, daily)),
+
+                  if (deadlines.isNotEmpty) ...[
+                    StaggerIn(
+                        index: 3,
+                        child: _eyebrow('Yaqin muddatlar',
+                            action: 'Kalendar', onAction: () => homeTab.value = 1)),
+                    StaggerIn(index: 4, child: _deadlineStrip(deadlines)),
+                  ],
+
                   StaggerIn(
                       index: 5,
-                      child: _eyebrow(tr('dash.financialStatus'),
-                          action: tr('common.details'), onAction: () => homeTab.value = 3)),
-                  StaggerIn(index: 6, child: _financials(debt, penalty)),
-                  StaggerIn(index: 7, child: _eyebrow(tr('dash.sections'))),
-                  StaggerIn(index: 8, child: _modulesGrid(context)),
+                      child: _eyebrow('Pul oqimi',
+                          action: 'Batafsil',
+                          onAction: () => _push(const FinancialScreen()))),
                   StaggerIn(
-                      index: 7,
-                      child: _eyebrow(tr('dash.yourFirms'),
-                          action: orgCount > 0 ? tr('common.all') : null,
-                          onAction: () => homeTab.value = 1)),
-                  StaggerIn(index: 8, child: _orgSection(orgs)),
-                  if (recent.isNotEmpty) ...[
-                    StaggerIn(
-                        index: 9,
-                        child: _eyebrow(tr('dash.recentAlerts'),
-                            action: tr('common.all'), onAction: () => homeTab.value = 4)),
-                    StaggerIn(index: 10, child: _recentSection(recent)),
-                  ],
-                  StaggerIn(index: 11, child: _eyebrow(tr('dash.recommendation'))),
-                  StaggerIn(index: 12, child: _ai(overdue, penalty)),
+                      index: 6, child: _cashflow(net, income, expense)),
+
+                  StaggerIn(index: 7, child: _eyebrow('Holat')),
+                  StaggerIn(
+                      index: 8,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _riskCard(risk)),
+                          const SizedBox(width: 11),
+                          Expanded(child: _debtCard(debt, overdue)),
+                        ],
+                      )),
+
+                  StaggerIn(index: 9, child: _eyebrow('Finn AI')),
+                  StaggerIn(index: 10, child: _ai(overdue, penalty, daily)),
+
+                  StaggerIn(index: 11, child: _eyebrow('Tez kirish')),
+                  StaggerIn(index: 12, child: _quick()),
                 ],
               );
             },
@@ -134,45 +125,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(children: [
               Icon(Icons.cloud_off_rounded, size: 44, color: C.muted(context, .35)),
               const SizedBox(height: 12),
-              Text(tr('state.noConnection'),
+              Text('Aloqa yo\'q',
                   style: TextStyle(color: C.muted(context, .6))),
               const SizedBox(height: 16),
-              FilledButton(onPressed: _refresh, child: Text(tr('common.retry'))),
+              FilledButton(onPressed: _refresh, child: const Text('Qayta urinish')),
             ]),
           ),
         ],
       );
 
   // ─────────────────────────── HEADER ───────────────────────────
-  Widget _header(String first, int unread) => Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+  Widget _header() => Row(
         children: [
+          _iconBtn(Icons.menu_rounded,
+              onTap: () => homeScaffoldKey.currentState?.openDrawer()),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_greet(),
+              Text('Asosiy',
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.7,
+                      height: 1.05,
+                      color: C.text(context))),
+              const SizedBox(height: 2),
+              Text('Umumiy holat bir ko\'rishda',
+                  style: TextStyle(
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w500,
                       color: C.muted(context, .5))),
-              const SizedBox(height: 3),
-              Text(first,
-                  style: TextStyle(
-                      fontSize: 29,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1,
-                      height: 1.1,
-                      color: C.text(context))),
             ]),
           ),
-          _iconBtn(Icons.search_rounded),
-          const SizedBox(width: 8),
           _iconBtn(Icons.notifications_none_rounded,
-              badge: unread, onTap: () => homeTab.value = 4),
+              onTap: () => homeTab.value = 4),
         ],
       );
 
-  Widget _iconBtn(IconData ic, {int badge = 0, VoidCallback? onTap}) =>
-      GestureDetector(
+  Widget _iconBtn(IconData ic, {VoidCallback? onTap}) => GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
@@ -184,28 +174,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             border: Border.all(color: C.border(context)),
             boxShadow: C.shadow(context),
           ),
-          child: Stack(alignment: Alignment.center, children: [
-            Icon(ic, size: 19, color: C.muted(context, .8)),
-            if (badge > 0)
-              Positioned(
-                top: 9,
-                right: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(3.5),
-                  decoration: BoxDecoration(
-                    color: C.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: C.card(context), width: 1.5),
-                  ),
-                ),
-              ),
-          ]),
+          child: Icon(ic, size: 19, color: C.muted(context, .8)),
         ),
       );
 
-  // ─────────────────────────── BALANCE ───────────────────────────
-  Widget _balance(double bal, int orgs, int clean, int overdue) =>
-      GestureDetector(
+  // ─────────────────────────── HERO / BALANS ───────────────────────────
+  Widget _hero(double bal, int orgs, int clean, int overdue) => GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => homeTab.value = 3,
         child: Container(
@@ -222,653 +196,477 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(26),
             child: Stack(children: [
               const Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF1745C9),
-                        Color(0xFF2A6DF5),
-                        Color(0xFF1FA8E8),
-                        Color(0xFF25C4E8),
-                      ],
-                      stops: [0, .44, .82, 1],
-                    ),
-                  ),
-                ),
+                child: DecoratedBox(decoration: BoxDecoration(gradient: C.grad)),
               ),
               // Oq radial nur (o'ng-yuqori).
               Positioned(
-                right: -90,
-                top: -110,
+                right: -110,
+                top: -140,
                 child: Container(
-                  width: 240,
-                  height: 240,
+                  width: 280,
+                  height: 280,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(colors: [
-                      Colors.white.withValues(alpha: .28),
+                      Colors.white.withValues(alpha: .26),
                       Colors.white.withValues(alpha: 0),
-                    ], stops: const [0, .62]),
+                    ], stops: const [0, .6]),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('dash.totalBalance'),
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.4,
-                              color: Colors.white.withValues(alpha: .66))),
-                      const SizedBox(height: 8),
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: bal),
-                        duration: const Duration(milliseconds: 1100),
-                        curve: Curves.easeOutCubic,
-                        builder: (_, v, __) => RichText(
-                          text: TextSpan(children: [
-                            TextSpan(
-                                text: money(v),
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 38,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.6,
-                                    height: 1)),
-                            TextSpan(
-                                text: '  ${tr('common.som')}',
-                                style: TextStyle(
-                                    color: Colors.white.withValues(alpha: .68),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500)),
-                          ]),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('UMUMIY BALANS',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.4,
+                                color: Colors.white.withValues(alpha: .66))),
+                        const SizedBox(height: 10),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: bal),
+                          duration: const Duration(milliseconds: 1100),
+                          curve: Curves.easeOutCubic,
+                          builder: (_, v, __) => FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: RichText(
+                              text: TextSpan(children: [
+                                TextSpan(
+                                    text: money(v),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 38,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -1.7,
+                                        height: 1)),
+                                TextSpan(
+                                    text: '  so\'m',
+                                    style: TextStyle(
+                                        color: Colors.white.withValues(alpha: .68),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500)),
+                              ]),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 22),
-                      Container(
-                          height: 1,
-                          color: Colors.white.withValues(alpha: .18)),
-                      const SizedBox(height: 17),
-                      Row(children: [
-                        _bstat('$orgs', tr('dash.orgs')),
-                        _bstat('$clean', tr('dash.clean')),
-                        _bstat('$overdue', tr('dash.overdue')),
                       ]),
-                    ]),
-              ),
+                ),
+                // Sparkline (chekkadan chekkaga).
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: SizedBox(
+                    height: 46,
+                    width: double.infinity,
+                    child: CustomPaint(painter: _SparkPainter()),
+                  ),
+                ),
+                // Statistika qatori.
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 22),
+                  padding: const EdgeInsets.fromLTRB(0, 14, 0, 18),
+                  decoration: BoxDecoration(
+                    border: Border(
+                        top: BorderSide(
+                            color: Colors.white.withValues(alpha: .2))),
+                  ),
+                  child: Row(children: [
+                    _hstat('$orgs', 'Tashkilot'),
+                    _hstat('$clean', 'Toza'),
+                    _hstat('$overdue', 'Kechikkan'),
+                  ]),
+                ),
+              ]),
             ]),
           ),
         ),
       );
 
-  Widget _bstat(String v, String l) => Expanded(
+  Widget _hstat(String v, String l) => Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(v,
               style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -.6)),
           const SizedBox(height: 3),
           Text(l,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: .66),
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w500)),
         ]),
       );
 
-  // ─────────────────────────── UPSELL ───────────────────────────
-  Widget _upsell() => Padding(
-        padding: const EdgeInsets.only(top: 14),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _openSub,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-            decoration: BoxDecoration(
-              color: C.tint(context, C.amber),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(children: [
-              Icon(Icons.lock_outline_rounded,
-                  size: 16, color: C.onAmb(context)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                    tr('dash.freePlan'),
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: C.onAmb(context))),
-              ),
-              const SizedBox(width: 10),
-              Text(tr('common.expand'),
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: C.onAmb(context))),
-              const SizedBox(width: 3),
-              Icon(Icons.chevron_right_rounded,
-                  size: 16, color: C.onAmb(context)),
-            ]),
-          ),
-        ),
-      );
-
-  // ─────────────────────────── ALERT ───────────────────────────
-  Widget _alert(int overdue, num penalty) => Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => homeTab.value = 3,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: C.tint(context, C.red),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(children: [
-              Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                      color: C.red, shape: BoxShape.circle)),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$overdue ${tr('dash.overduePayments')}',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -.3,
-                              color: C.onRed(context))),
-                      const SizedBox(height: 3),
-                      RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                              fontSize: 12.5, color: C.muted(context, .6)),
-                          children: [
-                            TextSpan(text: '${tr('dash.total')} '),
-                            TextSpan(
-                                text: '+${money(penalty)}',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: C.onRed(context))),
-                            TextSpan(text: ' ${tr('common.som')} ${tr('dash.penalty')}'),
-                          ],
-                        ),
-                      ),
-                    ]),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  size: 18, color: C.onRed(context)),
-            ]),
-          ),
-        ),
-      );
-
-  // ─────────────────────────── EYEBROW ───────────────────────────
-  Widget _eyebrow(String label, {String? action, VoidCallback? onAction}) =>
-      Padding(
-        padding: const EdgeInsets.fromLTRB(0, 26, 0, 12),
-        child: Row(children: [
-          Text(label.toUpperCase(),
-              style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                  color: C.muted(context, .4))),
-          const SizedBox(width: 12),
-          Expanded(child: Container(height: 1, color: C.border(context))),
-          if (action != null) ...[
-            const SizedBox(width: 12),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onAction,
-              child: Text(action,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: C.brand)),
-            ),
-          ],
-        ]),
-      );
-
-  // ─────────────────────────── FINANCIALS GRID ───────────────────────────
-  Widget _card({required Widget child, VoidCallback? onTap}) => GestureDetector(
+  // ─────────────────────────── JONLI PENYA ───────────────────────────
+  Widget _live(num penalty, num daily) => GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+        onTap: () => homeTab.value = 3,
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           decoration: BoxDecoration(
-            color: C.card(context),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: C.border(context)),
-            boxShadow: C.shadow(context),
+            color: C.tint(context, C.red),
+            borderRadius: BorderRadius.circular(20),
           ),
-          child: child,
-        ),
-      );
-
-  Widget _lab(String t) => Text(t.toUpperCase(),
-      style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.3,
-          color: C.muted(context, .4)));
-
-  Widget _financials(num debt, num penalty) => Column(children: [
-        // Umumiy qarz (to'liq kenglik + mini bar chart)
-        _card(
-          onTap: () => homeTab.value = 3,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _lab(tr('dash.totalDebt')),
-            const SizedBox(height: 10),
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: debt.toDouble()),
-              duration: const Duration(milliseconds: 1100),
-              curve: Curves.easeOutCubic,
-              builder: (_, v, __) => FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: RichText(
-                  text: TextSpan(children: [
-                    TextSpan(
-                        text: money(v),
-                        style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.4,
-                            height: 1,
-                            color: C.red)),
-                    TextSpan(
-                        text: '  so\'m',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: C.muted(context, .45))),
-                  ]),
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
-            _barChart(),
-            const SizedBox(height: 12),
-            Text(tr('dash.chartCaption'),
-                style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
-          ]),
-        ),
-        const SizedBox(height: 11),
-        Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // Jami penya
-          Expanded(
-            child: _card(
-              onTap: () => homeTab.value = 3,
+          child: Row(children: [
+            const _Beat(),
+            const SizedBox(width: 13),
+            Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _lab(tr('dash.totalPenalty')),
-                    const SizedBox(height: 9),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(money(penalty),
-                          style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -.8,
-                              height: 1,
-                              color: C.text(context))),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(tr('common.som'),
-                        style:
-                            TextStyle(fontSize: 12, color: C.onAmb(context))),
-                  ]),
-            ),
-          ),
-          const SizedBox(width: 11),
-          // O'rtacha risk
-          Expanded(
-            child: _card(
-              onTap: () => homeTab.value = 2,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _lab(tr('dash.avgRisk')),
-                    const SizedBox(height: 9),
-                    Text('—',
+                    Text('Penya hozir hisoblanmoqda',
                         style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 11.5,
+                            color: C.onRed(context).withValues(alpha: .9))),
+                    const SizedBox(height: 3),
+                    Text(money(penalty),
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -.8,
                             height: 1,
-                            color: C.muted(context, .55))),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      Text(tr('common.details'),
-                          style: TextStyle(
-                              fontSize: 12, color: C.muted(context, .45))),
-                      const SizedBox(width: 3),
-                      Icon(Icons.chevron_right_rounded,
-                          size: 14, color: C.muted(context, .45)),
-                    ]),
+                            color: C.onRed(context))),
                   ]),
             ),
-          ),
-        ]),
-      ]);
-
-  /// Dekorativ mini bar chart (API seriyasi yo'q — dizayn ko'rinishi).
-  Widget _barChart() {
-    const heights = [.34, .46, .40, .58, .52, .70, .64, .88, 1.0];
-    return SizedBox(
-      height: 42,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < heights.length; i++) ...[
-            if (i > 0) const SizedBox(width: 5),
-            Expanded(
-              child: FractionallySizedBox(
-                heightFactor: heights[i],
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: i >= heights.length - 2
-                        ? C.red
-                        : C.muted(context, .18),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────── QUICK ACTIONS ───────────────────────────
-  Widget _quickActions() {
-    final items = <(IconData, String, Color, int)>[
-      (Icons.apartment_rounded, tr('nav.orgs'), C.brand, 1),
-      (Icons.account_balance_rounded, tr('nav.tax'), C.red, 3),
-      (Icons.speed_rounded, tr('nav.risk'), C.green, 2),
-      (Icons.notifications_rounded, tr('nav.notif'), C.violet, 4),
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => homeTab.value = items[i].$4,
-                child: Column(children: [
-                  _MagneticTap(
-                    child: Container(
-                      height: 58,
-                      decoration: BoxDecoration(
-                        color: C.tint(context, items[i].$3),
-                        borderRadius: BorderRadius.circular(19),
-                      ),
-                      child: Icon(items[i].$1, color: items[i].$3, size: 25),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(items[i].$2,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: C.muted(context, .7))),
-                ]),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────── BO'LIMLAR (barcha modullar) ───────────────────────────
-  Widget _modulesGrid(BuildContext context) {
-    final mods = <(IconData, String, Color, Widget)>[
-      (Icons.swap_vert_rounded, tr('mod.financial'), C.green, const FinancialScreen()),
-      (Icons.account_balance_wallet_outlined, tr('mod.wallet'), C.brand, const WalletScreen()),
-      (Icons.currency_exchange_rounded, tr('mod.currency'), C.cyan, const CurrencyScreen()),
-      (Icons.description_outlined, tr('mod.documents'), C.blue, const DocumentsScreen()),
-      (Icons.receipt_long_outlined, tr('mod.didox'), C.violet, const DidoxScreen()),
-      (Icons.assessment_outlined, tr('mod.reports'), C.sky, const ReportsScreen()),
-      (Icons.event_note_outlined, tr('mod.calendar'), C.amber, const CalendarScreen()),
-      (Icons.people_alt_outlined, tr('mod.employees'), C.violet, const EmployeesScreen()),
-      (Icons.groups_outlined, tr('mod.team'), C.brand, const TeamScreen()),
-      (Icons.handshake_outlined, tr('mod.counterparty'), C.cyan, const CounterpartyScreen()),
-      (Icons.verified_outlined, tr('mod.audit'), C.green, const AuditReportScreen()),
-      (Icons.gavel_rounded, tr('mod.enforcement'), C.red, const EnforcementScreen()),
-    ];
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 10,
-      childAspectRatio: .84,
-      children: [
-        for (final m in mods)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => m.$4)),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _MagneticTap(
-                child: Container(
-                  width: 56, height: 56, alignment: Alignment.center,
-                  decoration: BoxDecoration(color: C.tint(context, m.$3), borderRadius: BorderRadius.circular(18)),
-                  child: Icon(m.$1, color: m.$3, size: 24),
-                ),
-              ),
-              const SizedBox(height: 7),
-              Text(m.$2,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: C.muted(context, .72))),
-            ]),
-          ),
-      ],
-    );
-  }
-
-  // ─────────────────────────── FIRMALAR ───────────────────────────
-  Widget _orgSection(List orgs) {
-    if (orgs.isEmpty) {
-      return _card(
-        onTap: () => homeTab.value = 1,
-        child: Row(children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(
-                color: C.tint(context, C.brand),
-                borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.add_business_rounded, color: C.brand, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('dash.addFirm'),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('+${money(daily)}',
                   style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: C.text(context))),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -.4,
+                      color: C.onRed(context))),
               const SizedBox(height: 2),
-              Text(tr('dash.startTracking'),
-                  style: TextStyle(fontSize: 12, color: C.muted(context, .5))),
+              Text('so\'m/kun',
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      color: C.onRed(context).withValues(alpha: .7))),
             ]),
-          ),
-          Icon(Icons.chevron_right_rounded, size: 18, color: C.muted(context, .4)),
-        ]),
+          ]),
+        ),
       );
-    }
-    return Column(
-      children: [
-        for (final o in orgs.take(5)) ...[
-          _orgRow(o as Map),
-          const SizedBox(height: 9),
-        ],
-      ],
-    );
-  }
 
-  Widget _orgRow(Map o) {
-    final name = (o['name'] ?? '').toString();
-    final stir = (o['stir'] ?? '').toString();
-    final debt = (o['debt'] ?? 0) as num;
-    final clean = debt <= 0;
-    final col = clean ? C.green : C.red;
-    final words = name.trim().split(RegExp(r'\s+'));
-    final mono = (words.length >= 2
-            ? '${words[0][0]}${words[1][0]}'
-            : (name.length >= 2 ? name.substring(0, 2) : name))
-        .toUpperCase();
+  // ─────────────────────────── MUDDATLAR ───────────────────────────
+  Widget _deadlineStrip(List deadlines) => SizedBox(
+        height: 132,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: deadlines.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, i) => _deadlineCard(deadlines[i] as Map),
+        ),
+      );
+
+  Widget _deadlineCard(Map dl) {
+    final title = (dl['title'] ?? '').toString();
+    final date = (dl['date'] ?? '').toString();
+    final days = ((dl['days'] ?? 0) as num).toInt();
+    final col = days <= 7
+        ? C.red
+        : days <= 30
+            ? C.amber
+            : C.green;
+    // Kam kun → to'liqroq / qizilroq halqa.
+    final frac = (1 - days / 60).clamp(.08, 1.0).toDouble();
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => homeTab.value = 1,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        width: 132,
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: C.card(context),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: C.border(context)),
           boxShadow: C.shadow(context),
         ),
-        child: Row(children: [
-          Container(
-            width: 42, height: 42, alignment: Alignment.center,
-            decoration: BoxDecoration(
-                color: C.tint(context, col),
-                borderRadius: BorderRadius.circular(13)),
-            child: Text(mono,
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: clean ? C.onGrn(context) : C.onRed(context))),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name,
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Stack(alignment: Alignment.center, children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: frac),
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, v, __) => CustomPaint(
+                      size: const Size(44, 44),
+                      painter: _RingPainter(
+                          fraction: v,
+                          color: col,
+                          track: C.muted(context, .12),
+                          stroke: 4),
+                    ),
+                  ),
+                  Text('$days',
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -.5,
+                          color: C.text(context))),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              Text(title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -.2,
                       color: C.text(context))),
-              if (stir.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text('STIR $stir',
-                    style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
-              ],
-            ]),
-          ),
-          const SizedBox(width: 10),
-          if (clean)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                  color: C.tint(context, C.green),
-                  borderRadius: BorderRadius.circular(20)),
-              child: Text(tr('dash.clean'),
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: C.onGrn(context))),
-            )
-          else
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(money(debt),
-                  style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -.3,
-                      color: C.red)),
-              const SizedBox(height: 1),
-              Text(tr('dash.debt'),
+              const SizedBox(height: 3),
+              Text(date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 11, color: C.muted(context, .45))),
             ]),
-        ]),
       ),
     );
   }
 
-  // ─────────────────────────── SO'NGGI XABARLAR ───────────────────────────
-  (IconData, Color) _notifStyle(String type, String priority) {
-    if (type.contains('security')) return (Icons.lock_outline_rounded, C.violet);
-    if (priority == 'high' || type.contains('tax') || type.contains('debt') || type.contains('penalty')) {
-      return (Icons.account_balance_rounded, C.red);
-    }
-    if (type.contains('ai')) return (Icons.auto_awesome_rounded, C.brand);
-    if (type.contains('paid') || type.contains('success')) return (Icons.check_rounded, C.green);
-    if (type.contains('report') || type.contains('deadline')) return (Icons.warning_amber_rounded, C.amber);
-    return (Icons.notifications_rounded, C.brand);
+  // ─────────────────────────── PUL OQIMI ───────────────────────────
+  Widget _cashflow(num net, num income, num expense) {
+    final pos = net >= 0;
+    final pct = income > 0 ? (net / income * 100).round() : 0;
+    return _card(
+      onTap: () => _push(const FinancialScreen()),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SOF FOYDA',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.3,
+                          color: C.muted(context, .4))),
+                  const SizedBox(height: 9),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text('${pos ? '+' : ''}${money(net)}',
+                        style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1,
+                            height: 1,
+                            color: pos ? C.onGrn(context) : C.onRed(context))),
+                  ),
+                ]),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+                color: C.tint(context, pos ? C.green : C.red),
+                borderRadius: BorderRadius.circular(20)),
+            child: Text('${pct >= 0 ? '+' : ''}$pct%',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: pos ? C.onGrn(context) : C.onRed(context))),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 92,
+          width: double.infinity,
+          child: CustomPaint(painter: _AreaPainter()),
+        ),
+        const SizedBox(height: 14),
+        Row(children: [
+          _legend(C.green, 'Kirim ${money(income)}'),
+          const SizedBox(width: 16),
+          _legend(C.red, 'Chiqim ${money(expense)}'),
+        ]),
+      ]),
+    );
   }
 
-  Widget _recentSection(List recent) => Column(
-        children: [
-          for (final n in recent.take(3)) ...[
-            _recentRow(n as Map),
-            const SizedBox(height: 9),
-          ],
-        ],
-      );
-
-  Widget _recentRow(Map n) {
-    final st = _notifStyle((n['type'] ?? '').toString(), (n['priority'] ?? '').toString());
-    final unread = n['read'] != true;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => homeTab.value = 4,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: C.card(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: C.border(context)),
-          boxShadow: C.shadow(context),
+  Widget _legend(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+            width: 8,
+            height: 8,
+            decoration:
+                BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(t,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: C.muted(context, .6))),
         ),
-        child: Row(children: [
-          Container(
-            width: 38, height: 38, alignment: Alignment.center,
-            decoration: BoxDecoration(color: C.tint(context, st.$2), borderRadius: BorderRadius.circular(12)),
-            child: Icon(st.$1, color: st.$2, size: 19),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text((n['title'] ?? '').toString(),
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: C.text(context))),
+      ]);
+
+  // ─────────────────────────── RISK + QARZ ───────────────────────────
+  Widget _riskCard(Map? risk) {
+    final has = risk != null;
+    final score = ((risk?['score'] ?? 0) as num).toInt();
+    final col = score <= 30
+        ? C.green
+        : score <= 60
+            ? C.amber
+            : C.red;
+    final onCol = score <= 30
+        ? C.onGrn(context)
+        : score <= 60
+            ? C.onAmb(context)
+            : C.onRed(context);
+    final level = (risk?['level'] ?? '').toString().isNotEmpty
+        ? risk!['level'].toString()
+        : (score <= 30
+            ? 'Past'
+            : score <= 60
+                ? 'O\'rta'
+                : 'Yuqori');
+    return _card(
+      onTap: () => homeTab.value = 2,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        SizedBox(
+          width: 96,
+          height: 96,
+          child: Stack(alignment: Alignment.center, children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: has ? score / 100 : 0),
+              duration: const Duration(milliseconds: 1000),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, __) => CustomPaint(
+                size: const Size(96, 96),
+                painter: _RingPainter(
+                    fraction: v,
+                    color: has ? col : C.muted(context, .3),
+                    track: C.muted(context, .1),
+                    stroke: 8),
+              ),
+            ),
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(has ? '$score' : '—',
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1,
+                      height: 1,
+                      color: has ? onCol : C.muted(context, .55))),
               const SizedBox(height: 2),
-              Text((n['date'] ?? '').toString(),
-                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45))),
+              Text('ball',
+                  style: TextStyle(fontSize: 10, color: C.muted(context, .45))),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 14),
+        Text('RISK DARAJASI',
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.3,
+                color: C.muted(context, .4))),
+        const SizedBox(height: 5),
+        Text(has ? level : 'Batafsil',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -.3,
+                color: has ? onCol : C.muted(context, .55))),
+      ]),
+    );
+  }
+
+  Widget _debtCard(num debt, int overdue) {
+    return _card(
+      onTap: () => homeTab.value = 3,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+              color: C.tint(context, C.red),
+              borderRadius: BorderRadius.circular(11)),
+          child: Icon(Icons.account_balance_rounded,
+              size: 17, color: C.onRed(context)),
+        ),
+        const SizedBox(height: 14),
+        Text('UMUMIY QARZ',
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.3,
+                color: C.muted(context, .4))),
+        const SizedBox(height: 8),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: debt.toDouble()),
+          duration: const Duration(milliseconds: 1100),
+          curve: Curves.easeOutCubic,
+          builder: (_, v, __) => FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(money(v),
+                style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.8,
+                    height: 1,
+                    color: C.red)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            height: 6,
+            child: Stack(children: [
+              Positioned.fill(child: ColoredBox(color: C.muted(context, .1))),
+              FractionallySizedBox(
+                widthFactor: debt > 0 ? 1 : 0,
+                child: const ColoredBox(color: C.red),
+              ),
             ]),
           ),
-          if (unread)
-            Container(width: 8, height: 8, decoration: const BoxDecoration(color: C.red, shape: BoxShape.circle)),
-        ]),
-      ),
+        ),
+        const SizedBox(height: 10),
+        Text('$overdue ta kechikkan to\'lov',
+            style: TextStyle(fontSize: 11.5, color: C.muted(context, .5))),
+      ]),
     );
   }
 
   // ─────────────────────────── FINN AI ───────────────────────────
-  Widget _ai(int overdue, num penalty) => Container(
+  Widget _ai(int overdue, num penalty, num daily) {
+    final title = overdue > 0 ? 'Kechikkan to\'lovni yoping' : 'Moliya barqaror';
+    final bodySpans = overdue > 0
+        ? <TextSpan>[
+            const TextSpan(text: 'Kuniga '),
+            TextSpan(
+                text: '${money(daily)} so\'m',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w500, color: Colors.white)),
+            const TextSpan(
+                text:
+                    ' — penya shu qarzdan o\'sib bormoqda. Yopsangiz kunlik o\'sish to\'xtaydi.'),
+          ]
+        : <TextSpan>[
+            const TextSpan(
+                text:
+                    'Barcha to\'lovlar joyida, hozircha jarima yo\'q. Shu holatni saqlab qoling.'),
+          ];
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _push(const ChatScreen()),
+      child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26),
           boxShadow: [
@@ -894,11 +692,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             Positioned(
-              left: -80,
-              bottom: -120,
+              left: -100,
+              bottom: -150,
               child: Container(
-                width: 220,
-                height: 220,
+                width: 260,
+                height: 260,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(colors: [
@@ -915,10 +713,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(children: [
                       Icon(Icons.auto_awesome_rounded,
-                          size: 16,
-                          color: Colors.white.withValues(alpha: .8)),
+                          size: 16, color: Colors.white.withValues(alpha: .8)),
                       const SizedBox(width: 9),
-                      Text(tr('dash.finnAi'),
+                      Text('BUGUNGI TAVSIYA',
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -926,10 +723,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: Colors.white.withValues(alpha: .55))),
                     ]),
                     const SizedBox(height: 15),
-                    Text(
-                        overdue > 0
-                            ? tr('dash.aiOverdueTitle')
-                            : tr('dash.aiStableTitle'),
+                    Text(title,
                         style: const TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.w600,
@@ -942,49 +736,305 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 13.5,
                             height: 1.55,
-                            color: Colors.white.withValues(alpha: .62)),
-                        children: overdue > 0
-                            ? [
-                                TextSpan(text: '${tr('dash.total')} '),
-                                TextSpan(
-                                    text: '+${money(penalty)}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white)),
-                                TextSpan(
-                                    text:
-                                        ' ${tr('common.som')} ${tr('dash.penalty')}. ${tr('dash.aiOverdueBody')}'),
-                              ]
-                            : [
-                                TextSpan(
-                                    text: tr('dash.aiStableBody')),
-                              ],
+                            color: Colors.white.withValues(alpha: .64)),
+                        children: bodySpans,
                       ),
                     ),
                     const SizedBox(height: 17),
-                    _MagneticTap(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _openChat,
-                        child: Container(
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .94),
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          child: Center(
-                            child: Text(tr('common.review'),
-                                style: const TextStyle(
-                                    color: Color(0xFF0A0F1E),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600)),
-                          ),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .1),
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Text('Ko\'rib chiqish',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 7),
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 15, color: Colors.white.withValues(alpha: .9)),
+                      ]),
                     ),
                   ]),
             ),
           ]),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────── TEZ KIRISH ───────────────────────────
+  Widget _quick() {
+    final items = <(IconData, String, Color, Widget)>[
+      (Icons.description_outlined, 'Hujjatlar', C.blue, const DocumentsScreen()),
+      (Icons.receipt_long_outlined, 'Didox', C.violet, const DidoxScreen()),
+      (Icons.currency_exchange_rounded, 'Valyuta', C.teal, const CurrencyScreen()),
+      (Icons.handshake_outlined, 'Kontragent', C.amber, const CounterpartyScreen()),
+    ];
+    return Row(children: [
+      for (var i = 0; i < items.length; i++) ...[
+        if (i > 0) const SizedBox(width: 9),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _push(items[i].$4),
+            child: Column(children: [
+              _MagneticTap(
+                child: Container(
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: C.tint(context, items[i].$3),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Icon(items[i].$1, color: items[i].$3, size: 23),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(items[i].$2,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: C.muted(context, .7))),
+            ]),
+          ),
+        ),
+      ],
+    ]);
+  }
+
+  // ─────────────────────────── SHARED ───────────────────────────
+  Widget _card({required Widget child, VoidCallback? onTap}) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: C.card(context),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: C.border(context)),
+            boxShadow: C.shadow(context),
+          ),
+          child: child,
+        ),
+      );
+
+  Widget _eyebrow(String label, {String? action, VoidCallback? onAction}) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+        child: Row(children: [
+          Text(label.toUpperCase(),
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                  color: C.muted(context, .4))),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: C.border(context))),
+          if (action != null) ...[
+            const SizedBox(width: 12),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAction,
+              child: Text(action,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: C.brand)),
+            ),
+          ],
+        ]),
+      );
+}
+
+// ══════════════════════════ PAINTERS ══════════════════════════
+
+/// Aylana halqa (progress). Yuqoridan boshlanadi, soat yo'nalishida.
+class _RingPainter extends CustomPainter {
+  final double fraction;
+  final Color color;
+  final Color track;
+  final double stroke;
+  const _RingPainter(
+      {required this.fraction,
+      required this.color,
+      required this.track,
+      required this.stroke});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = (size.shortestSide - stroke) / 2;
+    final bg = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = track;
+    canvas.drawCircle(center, r, bg);
+    if (fraction <= 0) return;
+    final fg = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(Rect.fromCircle(center: center, radius: r), -math.pi / 2,
+        2 * math.pi * fraction.clamp(0, 1), false, fg);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter o) =>
+      o.fraction != fraction || o.color != color || o.track != track;
+}
+
+/// Balans hero sparkline (oq maydon + chiziq).
+class _SparkPainter extends CustomPainter {
+  static const _xs = [0.0, .123, .25, .373, .5, .623, .75, .873, 1.0];
+  static const _ys = [.826, .696, .761, .522, .609, .370, .457, .196, .087];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pts = <Offset>[
+      for (var i = 0; i < _xs.length; i++)
+        Offset(_xs[i] * size.width, _ys[i] * size.height),
+    ];
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final p in pts.skip(1)) {
+      line.lineTo(p.dx, p.dy);
+    }
+    final area = Path.from(line)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(area, Paint()..color = Colors.white.withValues(alpha: .16));
+    canvas.drawPath(
+        line,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = Colors.white.withValues(alpha: .9));
+  }
+
+  @override
+  bool shouldRepaint(_SparkPainter o) => false;
+}
+
+/// Pul oqimi: kirim (yashil, to'ldirilgan) + chiqim (qizil) chiziqlari.
+class _AreaPainter extends CustomPainter {
+  static const _xs = [0.0, .167, .333, .5, .667, .833, 1.0];
+  static const _in = [.674, .587, .630, .457, .522, .326, .239];
+  static const _out = [.804, .761, .717, .739, .652, .630, .565];
+
+  Path _line(Size s, List<double> ys) {
+    final p = Path()..moveTo(0, ys.first * s.height);
+    for (var i = 1; i < _xs.length; i++) {
+      p.lineTo(_xs[i] * s.width, ys[i] * s.height);
+    }
+    return p;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inLine = _line(size, _in);
+    final fill = Path.from(inLine)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              C.green.withValues(alpha: .26),
+              C.green.withValues(alpha: 0),
+            ],
+          ).createShader(Offset.zero & size));
+    canvas.drawPath(
+        inLine,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = C.green);
+    canvas.drawPath(
+        _line(size, _out),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = C.red);
+  }
+
+  @override
+  bool shouldRepaint(_AreaPainter o) => false;
+}
+
+// ══════════════════════════ WIDGETS ══════════════════════════
+
+/// Jonli penya nishoni — pulsatsiyalanuvchi qizil nuqta.
+class _Beat extends StatefulWidget {
+  const _Beat();
+  @override
+  State<_Beat> createState() => _BeatState();
+}
+
+class _BeatState extends State<_Beat> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1400))
+    ..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 9,
+        height: 9,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (_, __) => Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                left: -6,
+                top: -6,
+                right: -6,
+                bottom: -6,
+                child: Opacity(
+                  opacity: (1 - _c.value).clamp(0, 1) * .6,
+                  child: Transform.scale(
+                    scale: .4 + _c.value * 1.2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: C.red, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 9,
+                height: 9,
+                decoration:
+                    const BoxDecoration(color: C.red, shape: BoxShape.circle),
+              ),
+            ],
+          ),
         ),
       );
 }
@@ -1003,7 +1053,7 @@ class _MagneticTapState extends State<_MagneticTap> {
   Widget build(BuildContext context) => Listener(
         onPointerDown: (_) {
           HapticFeedback.selectionClick();
-          setState(() => _s = .96);
+          setState(() => _s = .92);
         },
         onPointerUp: (_) => setState(() => _s = 1),
         onPointerCancel: (_) => setState(() => _s = 1),

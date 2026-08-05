@@ -83,6 +83,8 @@ class C {
   static Color onAmb(BuildContext c) => isDark(c) ? const Color(0xFFF0A94E) : const Color(0xFFB0740F);
   static Color onGrn(BuildContext c) => isDark(c) ? const Color(0xFF3DD9A4) : const Color(0xFF0E9067);
   static Color onPur(BuildContext c) => isDark(c) ? const Color(0xFFB694FF) : const Color(0xFF6D28D9);
+  static const teal = Color(0xFF14B8C6);
+  static Color onTea(BuildContext c) => isDark(c) ? const Color(0xFF3FD3DE) : const Color(0xFF0B7F8A);
   /// Yumshoq soya (tinted, chegara o'rniga).
   static List<BoxShadow> shadow(BuildContext c, {double y = 8, double blur = 24, double a = .045}) => [
         BoxShadow(color: (isDark(c) ? Colors.black : const Color(0xFF0A1027)).withValues(alpha: isDark(c) ? a * 5 : a), blurRadius: blur, offset: Offset(0, y)),

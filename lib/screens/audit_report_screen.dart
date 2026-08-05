@@ -3,184 +3,295 @@ import '../main.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
 
-/// "Audit hisoboti" — tashkilotlar bo'yicha audit ballari.
+/// "Audit jurnali" — tashkilotlar bo'yicha audit ballari (composite score).
+/// Dizayn: finn-app-full.html `#v-audit` (chiplar + eyebrow guruhlar + timeline).
 class AuditReportScreen extends StatefulWidget {
   const AuditReportScreen({super.key});
   @override
   State<AuditReportScreen> createState() => _AuditReportScreenState();
 }
 
+/// Ball diapazoni: yuqori ball = past risk (yaxshi), past ball = yuqori risk.
+class _Band {
+  final String key, label;
+  final Color? color; // null → neytral (baholanmagan)
+  final Color Function(BuildContext)? on;
+  final IconData icon;
+  final bool Function(num?) match;
+  const _Band(this.key, this.label, this.color, this.on, this.icon, this.match);
+
+  Color col(BuildContext c) => color ?? C.muted(c, .6);
+  Color onCol(BuildContext c) => on?.call(c) ?? C.muted(c, .7);
+  Color tint(BuildContext c) => color != null ? C.tint(c, color!) : C.fill(c, .06);
+}
+
 class _AuditReportScreenState extends State<AuditReportScreen> {
   late Future<Map<String, dynamic>> _f = Api.auditReport();
+  String _sel = 'all';
 
   Future<void> _refresh() async => setState(() => _f = Api.auditReport());
 
-  /// Ballni xavfsiz num? ga aylantirish (int/double/null).
   num? _score(dynamic v) => v is num ? v : null;
 
-  Color _color(num? s) {
-    if (s == null) return C.muted(context, .5);
-    if (s >= 70) return C.green;
-    if (s >= 40) return C.amber;
-    return C.red;
-  }
+  final List<_Band> _bands = [
+    _Band('good', 'Past risk', C.green, C.onGrn, Icons.verified_rounded,
+        (s) => s != null && s >= 70),
+    _Band('mid', "O'rta risk", C.amber, C.onAmb, Icons.warning_amber_rounded,
+        (s) => s != null && s >= 40 && s < 70),
+    _Band('high', 'Yuqori risk', C.red, C.onRed, Icons.error_outline_rounded,
+        (s) => s != null && s < 40),
+    _Band('none', 'Baholanmagan', null, null, Icons.help_outline_rounded,
+        (s) => s == null),
+  ];
 
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: C.bg(context),
-        appBar: AppBar(
-          title: const Text('Audit hisoboti'),
-          backgroundColor: C.bg(context),
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
-        body: RefreshIndicator(
-          onRefresh: _refresh,
-          color: C.cyan,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _f,
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: C.cyan));
-              }
-              if (snap.hasError || snap.data == null || snap.data!['ok'] != true) {
-                return _error();
-              }
-              final items = (snap.data!['items'] as List? ?? const [])
-                  .cast<Map<String, dynamic>>();
-              if (items.isEmpty) return _empty();
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                itemCount: items.length,
-                itemBuilder: (context, i) {
-                  final it = items[i];
-                  final score = _score(it['score']);
-                  return StaggerIn(index: i, child: _card(it, score));
+        body: SafeArea(
+          bottom: false,
+          child: Column(children: [
+            _header(context),
+            Expanded(
+              child: Loader(
+                future: _f,
+                onRefresh: _refresh,
+                builder: (d) {
+                  final items = (d['items'] as List? ?? const [])
+                      .cast<Map<String, dynamic>>();
+                  if (items.isEmpty) {
+                    return const EmptyState(
+                      icon: Icons.history_toggle_off_rounded,
+                      color: C.cyan,
+                      text: 'Audit yozuvlari topilmadi',
+                    );
+                  }
+                  return _list(context, items);
                 },
+              ),
+            ),
+          ]),
+        ),
+      );
+
+  // ─── Sarlavha (orqaga + yuklab olish) ───────────────────────────
+  Widget _header(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+        child: Row(children: [
+          _iconBtn(context, Icons.chevron_left_rounded, () => Navigator.of(context).maybePop()),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Audit jurnali',
+                  style: TextStyle(
+                      fontSize: 23,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.6,
+                      height: 1.1,
+                      color: C.text(context))),
+              const SizedBox(height: 3),
+              Text('Barcha harakatlar tarixi',
+                  style: TextStyle(fontSize: 12.5, color: C.muted(context, .45))),
+            ]),
+          ),
+          _iconBtn(context, Icons.file_download_outlined, () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('CSV eksport tez orada')),
+            );
+          }),
+        ]),
+      );
+
+  Widget _iconBtn(BuildContext context, IconData icon, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: C.card(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: C.border(context)),
+          ),
+          child: Icon(icon, size: 20, color: C.muted(context, .7)),
+        ),
+      );
+
+  // ─── Ro'yxat (chiplar + guruhlangan timeline) ───────────────────
+  Widget _list(BuildContext context, List<Map<String, dynamic>> items) {
+    // Guruhlash: har band → tegishli tashkilotlar
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final it in items) {
+      final s = _score(it['score']);
+      final band = _bands.firstWhere((b) => b.match(s));
+      grouped.putIfAbsent(band.key, () => []).add(it);
+    }
+    final present = _bands.where((b) => (grouped[b.key] ?? const []).isNotEmpty).toList();
+
+    // Chiplar: Hammasi + mavjud bandlar
+    final chips = <_Chip>[const _Chip('all', 'Hammasi')];
+    for (final b in present) {
+      chips.add(_Chip(b.key, b.label));
+    }
+    // Tanlangan chip endi mavjud emas bo'lsa — Hammasi
+    if (_sel != 'all' && chips.every((c) => c.key != _sel)) _sel = 'all';
+
+    final visible = present.where((b) => _sel == 'all' || _sel == b.key).toList();
+
+    var idx = 0;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+      children: [
+        _chipsRow(context, chips),
+        for (final b in visible) ...[
+          _eyebrow(context, b.label),
+          StaggerIn(index: idx++, child: _group(context, b, grouped[b.key]!)),
+        ],
+        const SizedBox(height: 18),
+        Text(
+          'Audit ballari tashkilot risk profili asosida hisoblanadi va '
+          '24 oy saqlanadi. CSV shaklida yuklab olish mumkin.',
+          style: TextStyle(fontSize: 11.5, height: 1.5, color: C.muted(context, .38)),
+        ),
+      ],
+    );
+  }
+
+  // ─── Chiplar qatori ─────────────────────────────────────────────
+  Widget _chipsRow(BuildContext context, List<_Chip> chips) => Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 2),
+        child: SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: chips.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final c = chips[i];
+              final on = _sel == c.key;
+              return GestureDetector(
+                onTap: () => setState(() => _sel = c.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  decoration: BoxDecoration(
+                    color: on ? C.blue : C.card(context),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: on ? C.blue : C.border(context)),
+                  ),
+                  child: Text(
+                    c.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                      color: on ? Colors.white : C.muted(context, .65),
+                    ),
+                  ),
+                ),
               );
             },
           ),
         ),
       );
 
-  Widget _card(Map<String, dynamic> it, num? score) {
-    final color = _color(score);
-    final org = (it['org'] ?? '').toString();
-    final stir = (it['stir'] ?? '').toString();
-    final label = score == null ? '—' : score.round().toString();
-    final frac = score == null ? 0.0 : (score / 100).clamp(0.0, 1.0).toDouble();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: (C.isDark(context) ? Colors.black : const Color(0xFF1B2A4A))
-                .withValues(alpha: C.isDark(context) ? .25 : .06),
-            blurRadius: 30,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  org,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15.5,
-                    color: C.text(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'STIR: $stir',
-                  style: TextStyle(fontSize: 12.5, color: C.muted(context, .5)),
-                ),
-              ],
+  // ─── Bo'lim sarlavhasi (eyebrow) ────────────────────────────────
+  Widget _eyebrow(BuildContext context, String text) => Padding(
+        padding: const EdgeInsets.only(top: 24, bottom: 12),
+        child: Row(children: [
+          Text(
+            text.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              color: C.muted(context, .45),
             ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: .14),
-                  border: Border.all(color: color.withValues(alpha: .5), width: 2),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: color,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: 56,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: frac,
-                    minHeight: 5,
-                    backgroundColor: C.fill(context, .08),
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: C.border(context))),
+        ]),
+      );
+
+  // ─── Guruh (grp) — timeline kartasi ─────────────────────────────
+  Widget _group(BuildContext context, _Band b, List<Map<String, dynamic>> rows) => Container(
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(height: 1, thickness: 1, color: C.border(context, .05)),
+            _st(context, b, rows[i]),
+          ],
+        ]),
+      );
+
+  // ─── Timeline qatori (.st) ──────────────────────────────────────
+  Widget _st(BuildContext context, _Band b, Map<String, dynamic> it) {
+    final org = (it['org'] ?? '').toString().trim();
+    final stir = (it['stir'] ?? '').toString().trim();
+    final score = _score(it['score']);
+    final label = score == null ? '—' : score.round().toString();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Row(children: [
+        Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: b.tint(context),
+            borderRadius: BorderRadius.circular(11),
           ),
-        ],
-      ),
+          child: Icon(b.icon, size: 17, color: b.onCol(context)),
+        ),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              org.isEmpty ? 'Nomsiz tashkilot' : org,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -.2,
+                color: C.text(context),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              stir.isEmpty ? b.label : 'STIR $stir · ${b.label}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: C.muted(context, .42)),
+            ),
+          ]),
+        ),
+        const SizedBox(width: 10),
+        Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.5,
+              color: b.col(context),
+            ),
+          ),
+          Text('ball', style: TextStyle(fontSize: 10, color: C.muted(context, .35))),
+        ]),
+      ]),
     );
   }
+}
 
-  Widget _error() => ListView(
-        children: [
-          SizedBox(height: MediaQuery.of(context).size.height * .28),
-          Icon(Icons.cloud_off, size: 56, color: C.muted(context, .35)),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              'Server bilan aloqa yo\'q',
-              style: TextStyle(fontSize: 14.5, color: C.muted(context, .6)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: FilledButton.tonal(
-              onPressed: _refresh,
-              child: const Text('Qayta urinish'),
-            ),
-          ),
-        ],
-      );
-
-  Widget _empty() => ListView(
-        children: [
-          SizedBox(height: MediaQuery.of(context).size.height * .3),
-          Icon(Icons.inbox_outlined, size: 56, color: C.muted(context, .3)),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              'Ma\'lumot yo\'q',
-              style: TextStyle(fontSize: 14.5, color: C.muted(context, .5)),
-            ),
-          ),
-        ],
-      );
+class _Chip {
+  final String key, label;
+  const _Chip(this.key, this.label);
 }

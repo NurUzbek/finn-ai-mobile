@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../main.dart';
-import '../services/i18n.dart';
 import '../services/api.dart';
 import '../services/plan.dart';
 import 'login_screen.dart';
@@ -114,45 +113,64 @@ class _HomeShellState extends State<HomeShell> {
     ]);
   }
 
-  /// Suzuvchi shisha (glass) pill navigatsiya — aktiv tab kengayib yorliqni ko'rsatadi.
+  /// Suzuvchi shisha (glass) navigatsiya — MENISCUS uslubi: yaltirab turgan
+  /// "bead" (suyuqlik tomchisi) aktiv tabga spring bilan sirg'aladi.
   Widget _glassNav(BuildContext context, bool riskLocked) => ClipRRect(
         borderRadius: BorderRadius.circular(31),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(
             height: 62,
-            padding: const EdgeInsets.symmetric(horizontal: 7),
             decoration: BoxDecoration(
               color: C.card(context).withValues(alpha: .72),
               borderRadius: BorderRadius.circular(31),
               border: Border.all(color: C.border(context, .09)),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: C.isDark(context) ? .3 : .12), blurRadius: 30, offset: const Offset(0, 12))],
             ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: List.generate(_nav.length, (i) {
-              final active = _i == i;
-              final locked = i == 2 && riskLocked;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () { homeTab.value = i; setState(() => _i = i); },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic,
-                  width: active ? 104 : 40, height: 44,
-                  decoration: BoxDecoration(
-                    gradient: active ? C.grad : null,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: active ? [BoxShadow(color: C.brand.withValues(alpha: .34), blurRadius: 12, offset: const Offset(0, 4))] : null,
+            child: LayoutBuilder(builder: (ctx, cons) {
+              final slot = cons.maxWidth / _nav.length;
+              const beadW = 46.0, beadH = 44.0;
+              return Stack(children: [
+                // Suyuq bead — aktiv tabga sirg'aladi (spring / overshoot)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 520),
+                  curve: Curves.easeOutBack,
+                  left: _i * slot + (slot - beadW) / 2,
+                  top: (62 - beadH) / 2,
+                  width: beadW,
+                  height: beadH,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: C.grad,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(color: C.brand.withValues(alpha: .55), blurRadius: 20, spreadRadius: 1, offset: const Offset(0, 5)),
+                        BoxShadow(color: C.brand2.withValues(alpha: .35), blurRadius: 12, offset: const Offset(0, 2)),
+                      ],
+                    ),
                   ),
-                  child: ClipRect(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _navIcon(_nav[i].$1, active, locked),
-                    if (active) Flexible(child: Padding(
-                      padding: const EdgeInsets.only(left: 7),
-                      child: Text(tr(_nav[i].$2), maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5, letterSpacing: -.2)),
-                    )),
-                  ])),
                 ),
-              );
-            })),
+                Row(children: List.generate(_nav.length, (i) {
+                  final active = _i == i;
+                  final locked = i == 2 && riskLocked;
+                  return SizedBox(
+                    width: slot,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () { homeTab.value = i; setState(() => _i = i); },
+                      child: Center(
+                        child: AnimatedScale(
+                          scale: active ? 1.05 : 1,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          child: _navIcon(_nav[i].$1, active, locked),
+                        ),
+                      ),
+                    ),
+                  );
+                })),
+              ]);
+            }),
           ),
         ),
       );

@@ -3,7 +3,8 @@ import '../main.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
 
-/// Xodimlar moduli — jamoa a'zolari ro'yxati (avatar, lavozim, oylik, holat).
+/// Xodimlar moduli — jamoa a'zolari, oylik fond, YaIT va ro'yxat.
+/// Dizayn: finn-app-full.html `#v-xodim`.
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
   @override
@@ -14,202 +15,281 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   late Future<Map<String, dynamic>> _f = Api.employees();
   Future<void> _refresh() async => setState(() => _f = Api.employees());
 
+  /// Monogram ranglar aylanasi (dizayndagi tartib: blu · pur · tea · amb · grn).
+  static const _palette = [C.blue, C.violet, C.teal, C.amber, C.green];
+
+  Color _mColor(BuildContext c, int i) {
+    switch (_palette[i % _palette.length]) {
+      case C.blue:
+        return C.blue;
+      case C.violet:
+        return C.onPur(c);
+      case C.teal:
+        return C.onTea(c);
+      case C.amber:
+        return C.onAmb(c);
+      default:
+        return C.onGrn(c);
+    }
+  }
+
   /// Ismning bosh harflari (maks. 2 ta), bo'sh bo'lsa '—'.
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '—';
-    if (parts.length == 1) {
-      return parts.first.characters.first.toUpperCase();
-    }
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
     return (parts[0].characters.first + parts[1].characters.first).toUpperCase();
   }
 
+  /// Yirik summani "18.6 mln" ko'rinishida, aks holda oddiy formatda.
+  String _mln(num v) {
+    if (v.abs() >= 1000000) return '${(v / 1000000).toStringAsFixed(1)} mln';
+    return money(v);
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: C.bg(context),
-        appBar: AppBar(
-          title: const Text('Xodimlar', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.4)),
-        ),
-        body: SafeArea(
-          top: false,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _f,
-            builder: (ctx, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: C.cyan));
-              }
-              final d = snap.data;
-              if (snap.hasError || d == null || d['ok'] != true) {
-                return _ErrorState(onRetry: _refresh);
-              }
-
-              final raw = (d['employees'] as List?) ?? const [];
-              final employees = raw
-                  .whereType<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
-
-              return RefreshIndicator(
-                color: C.cyan,
-                backgroundColor: C.card(ctx),
-                onRefresh: _refresh,
-                child: employees.isEmpty
-                    ? ListView(
-                        children: const [
-                          SizedBox(height: 120),
-                          EmptyState(icon: Icons.people_outline_rounded, text: 'Xodim yo\'q'),
-                        ],
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        itemCount: employees.length + 1,
-                        itemBuilder: (c, i) {
-                          if (i == 0) {
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 4, bottom: 12, top: 4),
-                              child: Text(
-                                '${employees.length} xodim',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: C.muted(c, .5),
-                                ),
-                              ),
-                            );
-                          }
-                          final e = employees[i - 1];
-                          return StaggerIn(
-                            index: i - 1,
-                            child: _EmployeeCard(
-                              name: (e['name'] ?? '').toString(),
-                              position: (e['position'] ?? '').toString(),
-                              salary: (e['salary'] as num?)?.toDouble() ?? 0,
-                              status: (e['status'] ?? '').toString(),
-                              initials: _initials((e['name'] ?? '').toString()),
-                            ),
-                          );
-                        },
-                      ),
-              );
-            },
+  Widget build(BuildContext context) => SafeArea(
+        child: Column(children: [
+          ScreenHeader(
+            title: 'Xodimlar',
+            icon: Icons.groups_rounded,
+            subtitle: 'Jamoa a\'zolari',
+            action: _IconBtn(icon: Icons.add_rounded, onTap: () {}),
           ),
+          Expanded(
+            child: Loader(
+              future: _f,
+              onRefresh: _refresh,
+              builder: (d) {
+                final raw = (d['employees'] as List?) ?? const [];
+                final employees = raw
+                    .whereType<Map>()
+                    .map((e) => e.cast<String, dynamic>())
+                    .toList();
+
+                if (employees.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 80),
+                      EmptyState(
+                        icon: Icons.groups_rounded,
+                        text: 'Xodim yo\'q',
+                        color: C.blue,
+                      ),
+                    ],
+                  );
+                }
+
+                final fond = employees.fold<double>(
+                    0, (a, e) => a + ((e['salary'] as num?)?.toDouble() ?? 0));
+                final yait = fond * 0.12; // YaIT ~12%
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                  children: [
+                    // ── Oylik fond | YaIT bo'yicha ──
+                    StaggerIn(
+                      index: 0,
+                      child: Row(children: [
+                        Expanded(child: _SumCard(label: 'Oylik fond', value: _mln(fond), meta: 'so\'m/oy')),
+                        const SizedBox(width: 10),
+                        Expanded(child: _SumCard(label: 'YaIT bo\'yicha', value: _mln(yait), meta: 'so\'m/oy')),
+                      ]),
+                    ),
+
+                    // ── Ro'yxat ──
+                    const _Eyebrow(label: 'Ro\'yxat', trailing: 'Filtr'),
+
+                    ...List.generate(employees.length, (i) {
+                      final e = employees[i];
+                      final name = (e['name'] ?? '').toString();
+                      final position = (e['position'] ?? '').toString();
+                      final salary = (e['salary'] as num?)?.toDouble() ?? 0;
+                      return StaggerIn(
+                        index: i + 1,
+                        child: _EmployeeRow(
+                          name: name,
+                          position: position,
+                          salary: salary,
+                          initials: _initials(name),
+                          accent: _mColor(context, i),
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
+            ),
+          ),
+        ]),
+      );
+}
+
+/// Sarlavhadagi kichik ikonli tugma (dizayndagi `.iconbtn`).
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: C.card(context),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: C.border(context)),
+          ),
+          child: Icon(icon, size: 18, color: C.muted(context, .7)),
         ),
       );
 }
 
-class _EmployeeCard extends StatelessWidget {
-  final String name, position, status, initials;
+/// Yig'indi kartasi (Oylik fond / YaIT) — dizayndagi `.card` + `.lab/.val/.meta`.
+class _SumCard extends StatelessWidget {
+  final String label, value, meta;
+  const _SumCard({required this.label, required this.value, required this.meta});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.3,
+              color: C.muted(context, .45),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.7,
+                color: C.text(context),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(meta, style: TextStyle(fontSize: 12, color: C.muted(context, .45))),
+        ]),
+      );
+}
+
+/// Bo'lim sarlavhasi (dizayndagi `.eyebrow`) — matn · chiziq · ixtiyoriy havola.
+class _Eyebrow extends StatelessWidget {
+  final String label;
+  final String? trailing;
+  const _Eyebrow({required this.label, this.trailing});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 24, bottom: 12),
+        child: Row(children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+              color: C.muted(context, .5),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: C.border(context))),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            Text(
+              trailing!,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: C.blue),
+            ),
+          ],
+        ]),
+      );
+}
+
+/// Xodim qatori (dizayndagi `.row`) — monogram · ism/lavozim · oylik.
+class _EmployeeRow extends StatelessWidget {
+  final String name, position, initials;
   final double salary;
-  const _EmployeeCard({
+  final Color accent;
+  const _EmployeeRow({
     required this.name,
     required this.position,
     required this.salary,
-    required this.status,
     required this.initials,
+    required this.accent,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final active = status.toLowerCase() == 'active' || status.toLowerCase() == 'faol';
-    final dotColor = active ? C.green : C.muted(context, .3);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (C.isDark(context) ? Colors.black : const Color(0xFF1B2A4A))
-                .withValues(alpha: C.isDark(context) ? .25 : .06),
-            blurRadius: 30,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Row(children: [
-        Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFF246BFD), Color(0xFF00C6FF)]),
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            initials,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
-          ),
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+        decoration: BoxDecoration(
+          color: C.card(context),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: C.border(context)),
+          boxShadow: C.shadow(context),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(
-                child: Text(
-                  name.isEmpty ? '—' : name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: C.text(context)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(width: 9, height: 9, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-            ]),
-            if (position.isNotEmpty) ...[
-              const SizedBox(height: 3),
+        child: Row(children: [
+          // Monogram
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: C.tint(context, accent),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              initials,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: accent),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                position,
+                name.isEmpty ? '—' : name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, color: C.muted(context, .5)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: C.text(context)),
               ),
-            ],
-            if (salary > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                '${money(salary)} so\'m',
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: C.green),
-              ),
-            ],
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final Future<void> Function() onRetry;
-  const _ErrorState({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: C.red.withValues(alpha: .1), shape: BoxShape.circle),
-              child: const Icon(Icons.cloud_off_rounded, size: 32, color: C.red),
+              if (position.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  position,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45)),
+                ),
+              ],
+            ]),
+          ),
+          if (salary > 0) ...[
+            const SizedBox(width: 10),
+            Text(
+              money(salary),
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: C.text(context)),
             ),
-            const SizedBox(height: 16),
-            Text('Server bilan aloqa yo\'q',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: C.muted(context, .55), fontSize: 13.5)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Qayta urinish'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: C.cyan,
-                side: BorderSide(color: C.cyan.withValues(alpha: .4)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ]),
-        ),
+          ],
+        ]),
       );
 }

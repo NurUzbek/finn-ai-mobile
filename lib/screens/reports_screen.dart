@@ -3,13 +3,15 @@ import '../main.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
 
-/// Hisobotlar ekrani — foydalanuvchining topshirilgan/jarayondagi hisobotlari.
+/// Hisobotlar ekrani — soliq hisobotlari va muddatlar (dizayn: v-hisobot).
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
+
+enum _Cat { submitted, overdue, pending }
 
 class _ReportsScreenState extends State<ReportsScreen> {
   late Future<Map<String, dynamic>> _future;
@@ -25,71 +27,252 @@ class _ReportsScreenState extends State<ReportsScreen> {
     await _future;
   }
 
+  String _s(dynamic v) => v == null ? '' : v.toString();
+
+  _Cat _cat(String status) {
+    final s = status.toLowerCase().trim();
+    if (s == 'topshirilgan' ||
+        s == 'submitted' ||
+        s == 'done' ||
+        s == 'qabul' ||
+        s == 'accepted' ||
+        s == 'sent' ||
+        s == 'tayyor') {
+      return _Cat.submitted;
+    }
+    if (s == 'overdue' ||
+        s == 'kechikkan' ||
+        s == 'rad' ||
+        s == 'rad etilgan' ||
+        s.contains("muddati o'tgan")) {
+      return _Cat.overdue;
+    }
+    return _Cat.pending;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final q = ((now.month - 1) ~/ 3) + 1;
+
     return Scaffold(
       backgroundColor: C.bg(context),
-      appBar: AppBar(
-        title: const Text('Hisobotlar',
-            style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.4)),
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (ctx, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: C.cyan));
-          }
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            ScreenHeader(
+              title: 'Hisobotlar',
+              subtitle: '${now.year}-yil · $q-chorak',
+              icon: Icons.description_rounded,
+            ),
+            Expanded(
+              child: Loader(
+                future: _future,
+                onRefresh: _refresh,
+                builder: (data) {
+                  final raw = data['reports'];
+                  final reports = <Map<String, dynamic>>[
+                    if (raw is List)
+                      for (final e in raw)
+                        if (e is Map)
+                          e.map((k, v) => MapEntry(k.toString(), v)),
+                  ];
 
-          final data = snap.data;
-          final ok = data != null && data['ok'] == true;
+                  final submitted = <Map<String, dynamic>>[];
+                  final pending = <Map<String, dynamic>>[];
+                  for (final r in reports) {
+                    if (_cat(_s(r['status'])) == _Cat.submitted) {
+                      submitted.add(r);
+                    } else {
+                      pending.add(r);
+                    }
+                  }
 
-          if (!ok) {
-            return _ErrorState(onRetry: _refresh);
-          }
+                  // Chorak muddati hisob-kitobi.
+                  final qStart = DateTime(now.year, (q - 1) * 3 + 1, 1);
+                  final qEnd = DateTime(now.year, q * 3 + 1, 1);
+                  final totalDays = qEnd.difference(qStart).inDays;
+                  final elapsed = now.difference(qStart).inDays;
+                  final remaining = qEnd.difference(now).inDays;
+                  final progress =
+                      (elapsed / totalDays).clamp(0.0, 1.0).toDouble();
 
-          final raw = data['reports'];
-          final reports = <Map<String, dynamic>>[
-            if (raw is List)
-              for (final e in raw)
-                if (e is Map) e.map((k, v) => MapEntry(k.toString(), v)),
-          ];
+                  var i = 0;
+                  final children = <Widget>[
+                    const SizedBox(height: 4),
+                    StaggerIn(
+                      index: i++,
+                      child: _SummaryCard(
+                        remaining: remaining,
+                        progress: progress,
+                        total: reports.length,
+                        submitted: submitted.length,
+                      ),
+                    ),
+                  ];
 
-          return RefreshIndicator(
-            color: C.cyan,
-            backgroundColor: C.card(context),
-            onRefresh: _refresh,
-            child: reports.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 120),
-                      EmptyState(
+                  if (pending.isNotEmpty) {
+                    children.add(const _Eyebrow('Topshirilishi kerak'));
+                    for (final r in pending) {
+                      children.add(StaggerIn(
+                        index: i++,
+                        child: _ReportRow(report: r, cat: _cat(_s(r['status']))),
+                      ));
+                    }
+                  }
+
+                  if (submitted.isNotEmpty) {
+                    children.add(const _Eyebrow('Topshirilgan'));
+                    for (final r in submitted) {
+                      children.add(StaggerIn(
+                        index: i++,
+                        child: _ReportRow(report: r, cat: _Cat.submitted),
+                      ));
+                    }
+                  }
+
+                  if (reports.isEmpty) {
+                    children.add(const Padding(
+                      padding: EdgeInsets.only(top: 40),
+                      child: EmptyState(
                         icon: Icons.insert_chart_outlined_rounded,
                         color: C.blue,
-                        text: 'Hisobot yo\'q',
+                        text: 'Hozircha hisobot yo\'q',
                       ),
-                    ],
-                  )
-                : ListView.separated(
+                    ));
+                  }
+
+                  return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                    itemCount: reports.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) => StaggerIn(
-                      index: i,
-                      child: _ReportCard(report: reports[i]),
-                    ),
-                  ),
-          );
-        },
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    children: children,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ReportCard extends StatelessWidget {
+/// Yuqoridagi umumiy karta — chorak yakuniga qolgan kunlar + progress.
+class _SummaryCard extends StatelessWidget {
+  final int remaining;
+  final double progress;
+  final int total;
+  final int submitted;
+  const _SummaryCard({
+    required this.remaining,
+    required this.progress,
+    required this.total,
+    required this.submitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: C.card(context),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: C.border(context)),
+        boxShadow: C.shadow(context),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'CHORAK YAKUNLANISHIGA',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.3,
+              color: C.muted(context, .45),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${remaining < 0 ? 0 : remaining} kun',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1.2,
+              height: 1,
+              color: C.text(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              height: 6,
+              color: C.fill(context, .06),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
+                  duration: const Duration(milliseconds: 850),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, v, __) => FractionallySizedBox(
+                    widthFactor: v <= 0 ? 0.001 : v,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: C.blue,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            total == 0
+                ? 'Hozircha hisobot yo\'q'
+                : '$total tadan $submitted tasi topshirilgan',
+            style: TextStyle(fontSize: 12, color: C.muted(context, .45)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bo'lim sarlavhasi — matn + ajratuvchi chiziq (.eyebrow).
+class _Eyebrow extends StatelessWidget {
+  final String text;
+  const _Eyebrow(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+        child: Row(
+          children: [
+            Text(
+              text.toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: C.muted(context, .45),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Container(height: 1, color: C.border(context))),
+          ],
+        ),
+      );
+}
+
+/// Bitta hisobot qatori (.row) — ikonka + sarlavha + muddat + holat pili.
+class _ReportRow extends StatelessWidget {
   final Map<String, dynamic> report;
-  const _ReportCard({required this.report});
+  final _Cat cat;
+  const _ReportRow({required this.report, required this.cat});
 
   String _s(dynamic v) => v == null ? '' : v.toString();
 
@@ -100,165 +283,119 @@ class _ReportCard extends StatelessWidget {
     final date = _s(report['date']);
     final status = _s(report['status']);
 
-    final dark = C.isDark(context);
+    late final Color accent;
+    late final Color onColor;
+    late final IconData icon;
+    late final String pillDefault;
+    switch (cat) {
+      case _Cat.submitted:
+        accent = C.green;
+        onColor = C.onGrn(context);
+        icon = Icons.check_rounded;
+        pillDefault = 'Qabul';
+        break;
+      case _Cat.overdue:
+        accent = C.red;
+        onColor = C.onRed(context);
+        icon = Icons.priority_high_rounded;
+        pillDefault = 'Muddati o\'tgan';
+        break;
+      case _Cat.pending:
+        accent = C.amber;
+        onColor = C.onAmb(context);
+        icon = Icons.insert_chart_outlined_rounded;
+        pillDefault = 'Jarayonda';
+        break;
+    }
+
+    final subtitle = cat == _Cat.submitted
+        ? (date.isNotEmpty ? '$date da topshirilgan' : 'Topshirilgan')
+        : (type.isNotEmpty
+            ? type
+            : (date.isNotEmpty ? 'Muddat: $date' : 'Muddat belgilanmagan'));
+
+    var pillText = status.trim();
+    if (pillText.isEmpty) {
+      pillText = pillDefault;
+    } else {
+      pillText = pillText[0].toUpperCase() + pillText.substring(1);
+    }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
         color: C.card(context),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: (dark ? Colors.black : const Color(0xFF1B2A4A))
-                .withValues(alpha: dark ? .25 : .06),
-            blurRadius: 30,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        border: Border.all(color: C.border(context)),
+        boxShadow: C.shadow(context),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: C.blue.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(14),
+              color: C.tint(context, accent),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.description_rounded, size: 22, color: C.blue),
+            child: Icon(icon, size: 18, color: onColor),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title.isEmpty ? 'Hisobot' : title,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                     color: C.text(context),
                   ),
                 ),
-                if (type.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    type,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, color: C.muted(context, .5)),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    if (date.isNotEmpty) ...[
-                      Icon(Icons.calendar_today_rounded,
-                          size: 12, color: C.muted(context, .45)),
-                      const SizedBox(width: 5),
-                      Text(
-                        date,
-                        style:
-                            TextStyle(fontSize: 12, color: C.muted(context, .5)),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (status.isNotEmpty) _StatusChip(status: status),
-                  ],
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45)),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          _Pill(text: pillText, color: accent, on: onColor),
         ],
       ),
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  final String status;
-  const _StatusChip({required this.status});
+/// Holat pili (.pill p-*).
+class _Pill extends StatelessWidget {
+  final String text;
+  final Color color;
+  final Color on;
+  const _Pill({required this.text, required this.color, required this.on});
 
   @override
-  Widget build(BuildContext context) {
-    final s = status.toLowerCase().trim();
-
-    Color color;
-    if (s == 'topshirilgan' || s == 'submitted' || s == 'done') {
-      color = C.green;
-    } else if (s == 'pending' || s == 'jarayonda') {
-      color = C.amber;
-    } else if (s == 'rad' || s == 'overdue') {
-      color = C.red;
-    } else {
-      color = C.muted(context, .5);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: color,
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: C.tint(context, color),
+          borderRadius: BorderRadius.circular(20),
         ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final Future<void> Function() onRetry;
-  const _ErrorState({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: C.red.withValues(alpha: .1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.cloud_off_rounded, size: 32, color: C.red),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Server bilan aloqa yo\'q',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: C.muted(context, .55), fontSize: 13.5),
-            ),
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Qayta urinish'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: C.blue,
-                side: BorderSide(color: C.blue.withValues(alpha: .4)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ],
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: on,
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
