@@ -6,6 +6,7 @@ import 'services/api.dart';
 import 'services/idle_guard.dart';
 import 'services/theme.dart';
 import 'services/i18n.dart';
+import 'services/sfx.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/lock.dart';
 import 'screens/login_screen.dart';
@@ -112,6 +113,7 @@ class _FinnAppState extends State<FinnApp> {
     super.initState();
     ThemeState.i.load();
     I18n.i.load();
+    Sfx.i.load();
     _decideStart();
   }
 

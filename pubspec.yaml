@@ -1,7 +1,7 @@
 name: finn_ai
 description: FINN AI — soliq va hisobot muddatlarini nazorat qiluvchi aqlli yordamchi (iOS/Android).
 publish_to: 'none'
-version: 1.0.9+26
+version: 1.1.0+27
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -36,6 +36,7 @@ dependencies:
   webview_flutter: ^4.14.1
   sms_autofill: ^2.5.0
   crypto: ^3.0.7
+  audioplayers: ^6.1.0   # menyu bosilganda "pop" ovozi
 
 dev_dependencies:
   flutter_test:

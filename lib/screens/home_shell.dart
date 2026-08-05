@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../main.dart';
+import '../services/sfx.dart';
 import '../services/api.dart';
 import '../services/plan.dart';
 import 'login_screen.dart';
@@ -157,7 +159,11 @@ class _HomeShellState extends State<HomeShell> {
                     width: slot,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () { homeTab.value = i; setState(() => _i = i); },
+                      onTap: () {
+                        if (i != _i) { Sfx.i.pop(); HapticFeedback.selectionClick(); }
+                        homeTab.value = i;
+                        setState(() => _i = i);
+                      },
                       child: Center(
                         child: AnimatedScale(
                           scale: active ? 1.05 : 1,
