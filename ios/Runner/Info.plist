@@ -68,5 +68,16 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Ilovaga xavfsiz kirish uchun Face ID ishlatiladi.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>uz.finn.app.oneid</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>finnai</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

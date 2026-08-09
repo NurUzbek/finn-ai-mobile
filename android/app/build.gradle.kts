@@ -5,6 +5,7 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 // Release imzo — android/key.properties (git'ga kirmaydi, CI'da secret'dan yoziladi).
@@ -45,6 +46,11 @@ android {
                 storeFile = keystoreProperties["storeFile"]?.let { rootProject.file(it) }
                 storePassword = keystoreProperties["storePassword"] as String
             }
+            // Barcha imzo sxemalari — MIUI/Xiaomi va eski OEM o'rnatuvchilari
+            // ba'zan v1 (JAR) imzoni talab qiladi, aks holda "o'rnatishga ruxsat berilmadi".
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 

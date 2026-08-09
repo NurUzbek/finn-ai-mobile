@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
 import '../services/api.dart';
+import '../widgets/add_forms.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 
+/// Kirim va chiqim (Moliya). TZ "Monitoring" moduli — pastki nav tab'i (asTab).
 class FinancialScreen extends StatefulWidget {
-  const FinancialScreen({super.key});
+  const FinancialScreen({super.key, this.asTab = false});
+  /// true — pastki nav tab'i sifatida (orqaga tugmasi yo'q, TZ nomi bilan).
+  final bool asTab;
 
   @override
   State<FinancialScreen> createState() => _FinancialScreenState();
 }
 
 class _FinancialScreenState extends State<FinancialScreen> {
-  static const _months = [
-    'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-    'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
-  ];
-  // Diagramma namunasi (kirim %, chiqim %) — API oylik seriya bermaydi.
+  // Diagramma namunasi (tr kaliti, kirim %, chiqim %) — proto `.bars` bilan bir xil.
   static const _series = [
-    ['Mar', 34, 26], ['Apr', 42, 30], ['May', 38, 36],
-    ['Iyn', 52, 32], ['Iyl', 46, 40], ['Avg', 58, 42],
+    ['fin.bar.3', 34, 26], ['fin.bar.4', 42, 30], ['fin.bar.5', 38, 36],
+    ['fin.bar.6', 52, 32], ['fin.bar.7', 46, 40], ['fin.bar.8', 58, 42],
   ];
 
   late Future<Map<String, dynamic>> _future;
@@ -37,208 +39,214 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
   String get _monthLabel {
     final now = DateTime.now();
-    return '${_months[now.month - 1]} ${now.year}';
+    return '${tr('fin.mon.${now.month}')} ${now.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: C.bg(context),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _header(),
-            Expanded(
-              child: Loader(
-                future: _future,
-                onRefresh: _reload,
-                builder: (d) {
-                  final summary =
-                      (d['summary'] as Map?)?.cast<String, dynamic>() ?? const {};
-                  final income = (summary['income'] as num?)?.toDouble() ?? 0;
-                  final expense = (summary['expense'] as num?)?.toDouble() ?? 0;
-                  final net = (summary['net'] as num?)?.toDouble() ?? (income - expense);
+    final t = context.tokens;
+    return FinnScreen(
+      title: widget.asTab ? tr('nav.monitoring') : tr('fin.title'),
+      subtitle: _monthLabel,
+      showNav: false,
+      reserveNav: widget.asTab,
+      leading: widget.asTab
+          ? null
+          : _iconBtn(t, Icons.arrow_back_rounded,
+              onTap: () => Navigator.of(context).maybePop()),
+      actions: [
+        _iconBtn(t, Icons.add_rounded, onTap: () async {
+          if (await showAddFinancial(context)) _reload();
+        }),
+      ],
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final d = snap.data ?? {};
+            if (d['ok'] != true) return _err(t);
+            return _content(t, d);
+          },
+        ),
+      ],
+    );
+  }
 
-                  final ops = (d['operations'] as List?)
-                          ?.whereType<Map>()
-                          .map((e) => e.cast<String, dynamic>())
-                          .toList() ??
-                      const <Map<String, dynamic>>[];
+  Widget _content(FinnTokens t, Map<String, dynamic> d) {
+    final summary =
+        (d['summary'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final income = (summary['income'] as num?)?.toDouble() ?? 0;
+    final expense = (summary['expense'] as num?)?.toDouble() ?? 0;
+    final net = (summary['net'] as num?)?.toDouble() ?? (income - expense);
 
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-                    children: [
-                      StaggerIn(index: 0, child: _chips()),
-                      const SizedBox(height: 14),
-                      StaggerIn(index: 1, child: _summaryCard(income, expense, net)),
-                      const SizedBox(height: 24),
-                      StaggerIn(index: 2, child: _eyebrow('Oxirgi operatsiyalar', 'Hammasi')),
-                      const SizedBox(height: 12),
-                      if (ops.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: EmptyState(
-                            icon: Icons.receipt_long_rounded,
-                            color: C.green,
-                            text: 'Hali operatsiya yo\'q',
-                          ),
-                        )
-                      else
-                        for (int i = 0; i < ops.length; i++) ...[
-                          StaggerIn(index: 3 + i, child: _opRow(ops[i])),
-                          if (i != ops.length - 1) const SizedBox(height: 8),
-                        ],
-                    ],
-                  );
-                },
+    final ops = (d['operations'] as List?)
+            ?.whereType<Map>()
+            .map((e) => e.cast<String, dynamic>())
+            .toList() ??
+        const <Map<String, dynamic>>[];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        StaggerIn(index: 0, child: _chips(t)),
+        const SizedBox(height: 14),
+        StaggerIn(index: 1, child: _summaryCard(t, income, expense, net)),
+        StaggerIn(index: 2, child: _eyebrow(t, tr('fin.recentOps'), action: tr('fin.all'))),
+        if (ops.isEmpty)
+          StaggerIn(
+            index: 3,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: EmptyState(
+                icon: Icons.receipt_long_rounded,
+                color: t.green,
+                text: tr('fin.empty'),
               ),
             ),
+          )
+        else
+          for (int i = 0; i < ops.length; i++) ...[
+            StaggerIn(index: 3 + i, child: _opRow(t, ops[i])),
+            if (i != ops.length - 1)
+              const SizedBox(height: FinnTokens.gapList),
           ],
-        ),
-      ),
+      ],
     );
   }
 
-  // ── Sarlavha (.hd) ──────────────────────────────────────────────
-  Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
-      child: Row(children: [
-        _iconBtn(Icons.chevron_left_rounded, () => Navigator.of(context).maybePop()),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Kirim va chiqim',
-                style: TextStyle(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.7,
-                    height: 1.1,
-                    color: C.text(context))),
-            const SizedBox(height: 3),
-            Text(_monthLabel,
-                style: TextStyle(fontSize: 12.5, color: C.muted(context, .45))),
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('fin.noConnection'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _reload, child: Text(tr('common.retry'))),
           ]),
         ),
-        const SizedBox(width: 8),
-        _iconBtn(Icons.add_rounded, () {}),
-      ]),
-    );
-  }
+      );
 
-  Widget _iconBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: C.card(context),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: C.border(context)),
+  // ── Sarlavha tugmasi (.iconbtn / .back): 36×36, radius 12 ───────
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: t.line, width: 1),
+          ),
+          child: Icon(ic, size: 18, color: t.ink2),
         ),
-        child: Icon(icon, size: 22, color: C.muted(context, .7)),
-      ),
-    );
-  }
+      );
 
-  // ── Segmentlar (.chips) ─────────────────────────────────────────
-  Widget _chips() {
-    const labels = ['Oy', 'Chorak', 'Yil'];
+  // ── Segmentlar (.chips / .chip) ─────────────────────────────────
+  Widget _chips(FinnTokens t) {
+    final labels = [tr('fin.month'), tr('fin.quarter'), tr('fin.year')];
     return Row(children: [
       for (int i = 0; i < labels.length; i++) ...[
-        _chip(labels[i], i == _period, () => setState(() => _period = i)),
+        _chip(t, labels[i], i == _period, () => setState(() => _period = i)),
         if (i != labels.length - 1) const SizedBox(width: 8),
       ],
     ]);
   }
 
-  Widget _chip(String label, bool on, VoidCallback onTap) {
+  Widget _chip(FinnTokens t, String label, bool on, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 300),
+        curve: FinnTokens.ease,
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 15),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? C.brand : C.card(context),
+          color: on ? t.blue : t.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: on ? C.brand : C.border(context)),
+          border: Border.all(color: on ? t.blue : t.line),
         ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: on ? FontWeight.w600 : FontWeight.w500,
-                color: on ? Colors.white : C.muted(context, .7))),
+        child: Text(
+          label,
+          style: on
+              ? FinnText.chip(Colors.white).copyWith(fontWeight: FontWeight.w600)
+              : FinnText.chip(t.ink2),
+        ),
       ),
     );
   }
 
   // ── Xulosa kartasi (.card) ──────────────────────────────────────
-  Widget _summaryCard(double income, double expense, double net) {
+  Widget _summaryCard(FinnTokens t, double income, double expense, double net) {
     final netPos = net >= 0;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(FinnTokens.cardPad),
       decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: C.border(context)),
-        boxShadow: C.shadow(context),
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rXl),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: _sumCol('Kirim', income, C.onGrn(context))),
-          Container(width: 1, height: 44, color: C.border(context), margin: const EdgeInsets.symmetric(horizontal: 14)),
-          Expanded(child: _sumCol('Chiqim', expense, C.onRed(context))),
+          Expanded(child: _sumCol(t, tr('fin.income'), income, t.onGrn)),
+          Container(
+              width: 1,
+              height: 44,
+              color: t.line,
+              margin: const EdgeInsets.symmetric(horizontal: 14)),
+          Expanded(child: _sumCol(t, tr('fin.expense'), expense, t.onRed)),
         ]),
-        _bars(),
+        // .bars — margin-top:16
+        _bars(t),
+        // .legend — margin-top:14
         const SizedBox(height: 14),
         Row(children: [
-          _legend('Kirim', C.green),
+          _legend(t, t.green, tr('fin.income')),
           const SizedBox(width: 16),
-          _legend('Chiqim', C.red),
+          _legend(t, t.red, tr('fin.expense')),
         ]),
-        const SizedBox(height: 12),
+        // .meta — margin-top:8
+        const SizedBox(height: 8),
         Text(
-          'Sof foyda: ${netPos ? '+' : '−'}${money(net.abs())} so\'m',
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: netPos ? C.onGrn(context) : C.onRed(context)),
+          '${tr('fin.netProfit')}: ${netPos ? '+' : '−'}${money(net.abs())} ${tr('common.som')}',
+          style: FinnText.rowSub(netPos ? t.onGrn : t.onRed)
+              .copyWith(fontSize: 12),
         ),
       ]),
     );
   }
 
-  Widget _sumCol(String label, double value, Color color) {
+  // .lab + .val (font-size:22)
+  Widget _sumCol(FinnTokens t, String label, double value, Color color) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label.toUpperCase(),
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.3,
-              color: C.muted(context, .45))),
+      Text(label.toUpperCase(), style: FinnText.label(t.ink3)),
       const SizedBox(height: 8),
       FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
-        child: Text(money(value),
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.9,
-                height: 1,
-                color: color)),
+        child: Text(
+          money(value),
+          style: FinnText.bigValue(color)
+              .copyWith(fontSize: 22, letterSpacing: -0.99),
+        ),
       ),
     ]);
   }
 
-  Widget _bars() {
+  // .bars — balandligi 96px, ustunlar orasida 6, ichida 3, em ostida 6
+  Widget _bars(FinnTokens t) {
     const base = 96.0;
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -250,18 +258,20 @@ class _FinancialScreenState extends State<FinancialScreen> {
             for (int i = 0; i < _series.length; i++)
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(right: i == _series.length - 1 ? 0 : 6),
+                  padding:
+                      EdgeInsets.only(right: i == _series.length - 1 ? 0 : 6),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _bar((_series[i][1] as int) / 100 * base, C.green),
+                      _bar((_series[i][1] as int) / 100 * base, t.green),
                       const SizedBox(height: 3),
-                      _bar((_series[i][2] as int) / 100 * base, C.red),
+                      _bar((_series[i][2] as int) / 100 * base, t.red),
                       const SizedBox(height: 6),
-                      Text(_series[i][0] as String,
+                      Text(tr(_series[i][0] as String),
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 9.5, color: C.muted(context, .45))),
+                          style: FinnText.rowSub(t.ink3)
+                              .copyWith(fontSize: 9.5)),
                     ],
                   ),
                 ),
@@ -275,10 +285,10 @@ class _FinancialScreenState extends State<FinancialScreen> {
   Widget _bar(double h, Color color) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOutCubic,
-      builder: (_, t, __) => Container(
-        height: h * t,
+      duration: const Duration(milliseconds: 800),
+      curve: FinnTokens.spring,
+      builder: (_, v, __) => Container(
+        height: h * v,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(3),
@@ -287,43 +297,46 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _legend(String label, Color color) {
+  // .legend div — nuqta 8×8 + matn 12px ink-2
+  Widget _legend(FinnTokens t, Color color, String label) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(
         width: 8,
         height: 8,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+        decoration:
+            BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
       ),
       const SizedBox(width: 6),
-      Text(label, style: TextStyle(fontSize: 12, color: C.muted(context, .7))),
+      Text(label, style: FinnText.rowSub(t.ink2).copyWith(fontSize: 12)),
     ]);
   }
 
   // ── Bo'lim sarlavhasi (.eyebrow) ────────────────────────────────
-  Widget _eyebrow(String title, String? action) {
-    return Row(children: [
-      Text(title.toUpperCase(),
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.4,
-              color: C.muted(context, .45))),
-      const SizedBox(width: 12),
-      Expanded(child: Container(height: 1, color: C.border(context))),
-      if (action != null) ...[
-        const SizedBox(width: 12),
-        Text(action,
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w500, color: C.brand)),
-      ],
-    ]);
-  }
+  Widget _eyebrow(FinnTokens t, String label,
+          {String? action, VoidCallback? onAction}) =>
+      Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+        child: Row(children: [
+          Text(label.toUpperCase(), style: FinnText.eyebrow(t.ink3)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: t.line)),
+          if (action != null) ...[
+            const SizedBox(width: 12),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAction,
+              child: Text(action,
+                  style: FinnText.pill(t.blue).copyWith(fontSize: 12)),
+            ),
+          ],
+        ]),
+      );
 
   // ── Operatsiya qatori (.row) ────────────────────────────────────
-  Widget _opRow(Map<String, dynamic> op) {
+  Widget _opRow(FinnTokens t, Map<String, dynamic> op) {
     final isIncome = (op['type']?.toString() ?? 'expense') == 'income';
-    final onColor = isIncome ? C.onGrn(context) : C.onRed(context);
-    final accent = isIncome ? C.green : C.red;
+    final onColor = isIncome ? t.onGrn : t.onRed;
+    final tint = isIncome ? t.tGrn : t.tRed;
     final amount = (op['amount'] as num?)?.toDouble() ?? 0;
     final category = op['category']?.toString() ?? '';
     final description = op['description']?.toString() ?? '';
@@ -331,11 +344,13 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     final String title;
     final List<String> subParts;
+    // "Operatsiya #N" tavsifidagi so'zni ham joriy tilga o'giramiz.
+    final locDesc = description.replaceFirst('Operatsiya', tr('fin.operation'));
     if (category.isNotEmpty) {
-      title = category;
-      subParts = [description, date];
+      title = trTxnCat(category);
+      subParts = [locDesc, date];
     } else {
-      title = description.isNotEmpty ? description : 'Operatsiya';
+      title = locDesc.isNotEmpty ? locDesc : tr('fin.operation');
       subParts = [date];
     }
     final sub = subParts.where((e) => e.isNotEmpty).join(' · ');
@@ -343,17 +358,18 @@ class _FinancialScreenState extends State<FinancialScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: C.border(context, .045)),
-        boxShadow: C.shadow(context),
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rLg),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
       ),
       child: Row(children: [
+        // .row .m — 38×38, radius 12
         Container(
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: C.tint(context, accent),
+            color: tint,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
@@ -368,28 +384,20 @@ class _FinancialScreenState extends State<FinancialScreen> {
             Text(title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                    color: C.text(context))),
+                style: FinnText.rowTitle(t.ink)),
             if (sub.isNotEmpty) ...[
               const SizedBox(height: 2),
               Text(sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45))),
+                  style: FinnText.rowSub(t.ink3)),
             ],
           ]),
         ),
         const SizedBox(width: 12),
         Text(
           '${isIncome ? '+' : '−'}${money(amount)}',
-          style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-              color: onColor),
+          style: FinnText.rowValue(onColor),
         ),
       ]),
     );

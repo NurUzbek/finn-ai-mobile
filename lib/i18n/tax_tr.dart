@@ -30,4 +30,8 @@ const Map<String, Map<String, String>> tr = {
   'tax.finesTitle': {'uz': 'JARIMA XAVFI (МЖтК)', 'uzc': 'ЖАРИМА ХАВФИ (МЖтК)', 'ru': 'РИСК ШТРАФА (КоАО)', 'en': 'FINE RISK (Admin Code)'},
   'tax.finesNote': {'uz': 'Bazaviy hisoblash miqdori (BHM) karralarida', 'uzc': 'Базавий ҳисоблаш миқдори (БҲМ) карраларида', 'ru': 'В кратности базовой расчётной величины (БРВ)', 'en': 'In multiples of the base calculation amount (BCA)'},
   'tax.finesUpto': {'uz': 'gacha', 'uzc': 'гача', 'ru': 'до', 'en': 'up to'},
+
+  // ── Xato holati ──
+  'tax.errNoConnection': {'uz': 'Aloqa yo\'q', 'uzc': 'Алоқа йўқ', 'ru': 'Нет связи', 'en': 'No connection'},
+  'tax.retry': {'uz': 'Qayta urinish', 'uzc': 'Қайта уриниш', 'ru': 'Повторить', 'en': 'Retry'},
 };

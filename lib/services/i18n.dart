@@ -12,6 +12,19 @@ import '../i18n/profile_tr.dart' as profile;
 import '../i18n/subscription_tr.dart' as subscription;
 import '../i18n/login_tr.dart' as login;
 import '../i18n/identity_tr.dart' as identity;
+import '../i18n/currency_tr.dart' as currency;
+import '../i18n/financial_tr.dart' as financial;
+import '../i18n/wallet_tr.dart' as wallet;
+import '../i18n/documents_tr.dart' as documents;
+import '../i18n/didox_tr.dart' as didox;
+import '../i18n/reports_tr.dart' as reports;
+import '../i18n/calendar_tr.dart' as calendar;
+import '../i18n/employees_tr.dart' as employees;
+import '../i18n/team_tr.dart' as team;
+import '../i18n/counterparty_tr.dart' as counterparty;
+import '../i18n/audit_tr.dart' as audit;
+import '../i18n/chat_tr.dart' as chat;
+import '../i18n/enforcement_tr.dart' as enforcement;
 
 /// Ilova tili — foydalanuvchi tanlovi qurilmada saqlanadi.
 /// Singleton (ThemeState kabi): notifyListeners bilan butun ilova qayta quriladi.
@@ -53,6 +66,19 @@ class I18n extends ChangeNotifier {
     ...subscription.tr,
     ...login.tr,
     ...identity.tr,
+    ...currency.tr,
+    ...financial.tr,
+    ...wallet.tr,
+    ...documents.tr,
+    ...didox.tr,
+    ...reports.tr,
+    ...calendar.tr,
+    ...employees.tr,
+    ...team.tr,
+    ...counterparty.tr,
+    ...audit.tr,
+    ...chat.tr,
+    ...enforcement.tr,
   };
 
   /// Kalitni joriy tilga tarjima qiladi. Topilmasa — uz, u ham bo'lmasa — kalit.
@@ -80,3 +106,77 @@ class I18n extends ChangeNotifier {
 
 /// Global tarjima yordamchisi — `tr('key')`.
 String tr(String key) => I18n.i.t(key);
+
+/// API'dan keladigan hisobot turi nomini (DB'da o'zbekcha) joriy tilga o'giradi.
+/// Apostrof/registr farqiga bardoshli. Topilmasa — asl matnni qaytaradi.
+const Map<String, String> _reportTypeKeys = {
+  'qqs deklaratsiyasi': 'rtype.vat',
+  'qqs': 'rtype.vat',
+  'foyda soligi': 'rtype.profit',
+  'inps hisobot': 'rtype.inps',
+  'inps': 'rtype.inps',
+  'aylanma soliq': 'rtype.turnover',
+  'hisobotlar': 'rtype.reports',
+};
+
+String trReport(String raw) {
+  final norm = raw.trim().toLowerCase().replaceAll(RegExp("['ʻʼ`’]"), '');
+  final k = _reportTypeKeys[norm];
+  return k != null ? tr(k) : raw;
+}
+
+/// API'dan keladigan hisobot holatini (accepted/pending/…) joriy tilga o'giradi.
+const Map<String, String> _reportStatusKeys = {
+  'accepted': 'rep.pillAccepted',
+  'pending': 'rep.pillPending',
+  'submitted': 'rep.pillSubmitted',
+  'rejected': 'rep.pillRejected',
+  'overdue': 'rep.pillOverdue',
+  'draft': 'rep.pillDraft',
+  // Ijro/umumiy holatlar
+  'active': 'status.active',
+  'closed': 'status.closed',
+  'open': 'status.open',
+  'completed': 'status.completed',
+  'paid': 'status.paid',
+};
+
+String trStatus(String raw) {
+  final k = _reportStatusKeys[raw.trim().toLowerCase()];
+  return k != null ? tr(k) : raw;
+}
+
+/// Xodim lavozimini (API'dan o'zbekcha) joriy tilga o'giradi.
+const Map<String, String> _positionKeys = {
+  'direktor': 'pos.director',
+  'bosh buxgalter': 'pos.chiefAcc',
+  'buxgalter': 'pos.accountant',
+  'menejer': 'pos.manager',
+  'mutaxassis': 'pos.specialist',
+  'operator': 'pos.operator',
+  'kassir': 'pos.cashier',
+  'kadr': 'pos.hr',
+};
+
+String trPosition(String raw) {
+  final k = _positionKeys[raw.trim().toLowerCase()];
+  return k != null ? tr(k) : raw;
+}
+
+/// Moliyaviy operatsiya kategoriyasini joriy tilga o'giradi.
+const Map<String, String> _txnCatKeys = {
+  'soliq': 'cat.tax',
+  'maosh': 'cat.salary',
+  'transport': 'cat.transport',
+  'ijara': 'cat.rent',
+  'tovar': 'cat.goods',
+  'mahsulot': 'cat.goods',
+  'xizmat': 'cat.service',
+  'kommunal': 'cat.utilities',
+  'boshqa': 'cat.other',
+};
+
+String trTxnCat(String raw) {
+  final k = _txnCatKeys[raw.trim().toLowerCase()];
+  return k != null ? tr(k) : raw;
+}

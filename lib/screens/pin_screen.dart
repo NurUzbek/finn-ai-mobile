@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart';
+import '../theme/finn_tokens.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../services/lock.dart';
 import 'home_shell.dart';
 import 'login_screen.dart';
@@ -29,11 +30,12 @@ class _PinScreenState extends State<PinScreen> {
     if (!_isSet) _tryBio();
   }
 
+  /// Biometrika (barmoq izi / Face ID) — qurilmada MAVJUD bo'lsa doim taklif qilinadi
+  /// (auto ochilishda + barmoq izi tugmasi bosilganda). bioOn sozlamasiga bog'liq emas.
   Future<void> _tryBio() async {
-    if (await Lock.bioOn() && await Lock.bioAvailable()) {
-      final ok = await Lock.bioAuth();
-      if (ok && mounted) _enter();
-    }
+    if (!await Lock.bioAvailable()) return;
+    final ok = await Lock.bioAuth();
+    if (ok && mounted) _enter();
   }
 
   void _enter() {
@@ -70,14 +72,14 @@ class _PinScreenState extends State<PinScreen> {
           if (mounted) _enter();
         } else {
           setState(() { _confirm = false; _first = null; });
-          await _fail('PIN mos kelmadi, qaytadan');
+          await _fail(tr('pin.mismatch'));
         }
       }
     } else {
       if (await Lock.verify(_pin)) {
         _enter();
       } else {
-        await _fail('Noto\'g\'ri PIN');
+        await _fail(tr('pin.wrong'));
       }
     }
   }
@@ -88,12 +90,12 @@ class _PinScreenState extends State<PinScreen> {
     final on = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: C.card(c),
-        title: const Text('Face ID / Barmoq izi'),
-        content: const Text('Keyingi safar tezroq kirish uchun biometrikani yoqasizmi?'),
+        backgroundColor: c.tokens.card,
+        title: Text(tr('pin.bioTitle')),
+        content: Text(tr('pin.bioBody')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Keyin')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Yoqish')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('pin.bioLater'))),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(tr('pin.bioEnable'))),
         ],
       ),
     );
@@ -111,29 +113,30 @@ class _PinScreenState extends State<PinScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isSet ? (_confirm ? 'PINni tasdiqlang' : 'PIN kod o\'rnating') : 'FINN AI';
+    final t = context.tokens;
+    final title = _isSet ? (_confirm ? tr('pin.titleConfirm') : tr('pin.titleSet')) : tr('pin.titleUnlock');
     final sub = _isSet
-        ? (_confirm ? 'Xuddi shu 4 raqamni qayta kiriting' : 'Kirish uchun 4 xonali kod')
-        : 'Kirish uchun PIN kodni kiriting';
+        ? (_confirm ? tr('pin.subConfirm') : tr('pin.subSet'))
+        : tr('pin.subUnlock');
     return Scaffold(
-      backgroundColor: C.bg(context),
+      backgroundColor: t.bg,
       body: SafeArea(
         child: Column(children: [
           const Spacer(flex: 2),
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: C.cyan.withValues(alpha: .4), blurRadius: 24, offset: const Offset(0, 10))],
+              borderRadius: BorderRadius.circular(FinnTokens.rLg),
+              boxShadow: [BoxShadow(color: t.cyan.withValues(alpha: .4), blurRadius: 24, offset: const Offset(0, 10))],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(FinnTokens.rLg),
               child: Image.asset('assets/logo.png', width: 66, height: 66, fit: BoxFit.cover),
             ),
           ),
           const SizedBox(height: 20),
-          Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: C.text(context))),
+          Text(title, style: FinnText.screenTitle(t.ink)),
           const SizedBox(height: 6),
-          Text(sub, style: TextStyle(fontSize: 13.5, color: C.muted(context, .6))),
+          Text(sub, style: FinnText.screenSub(t.ink2)),
           const SizedBox(height: 28),
           AnimatedContainer(
             duration: const Duration(milliseconds: 60),
@@ -145,28 +148,28 @@ class _PinScreenState extends State<PinScreen> {
                 width: 16, height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: filled ? (_error != null ? C.red : C.blue) : Colors.transparent,
-                  border: Border.all(color: _error != null ? C.red : (filled ? C.blue : C.muted(context, .3)), width: 2),
+                  color: filled ? (_error != null ? t.red : t.blue) : Colors.transparent,
+                  border: Border.all(color: _error != null ? t.red : (filled ? t.blue : t.ink4), width: 2),
                 ),
               );
             })),
           ),
           const SizedBox(height: 14),
           SizedBox(height: 18, child: _error != null
-              ? Text(_error!, style: TextStyle(color: C.red, fontSize: 13, fontWeight: FontWeight.w600))
+              ? Text(_error!, style: FinnText.chip(t.red))
               : null),
           const Spacer(flex: 1),
-          _keypad(),
+          _keypad(t),
           const SizedBox(height: 8),
           if (!_isSet)
-            TextButton(onPressed: _logout, child: Text('Boshqa raqam bilan kirish', style: TextStyle(color: C.muted(context, .6), fontWeight: FontWeight.w600))),
+            TextButton(onPressed: _logout, child: Text(tr('pin.otherNumber'), style: FinnText.button(t.ink2))),
           const SizedBox(height: 12),
         ]),
       ),
     );
   }
 
-  Widget _keypad() {
+  Widget _keypad(FinnTokens t) {
     Widget key(String d) => _KeyBtn(label: d, onTap: () => _onDigit(d));
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -193,20 +196,21 @@ class _KeyBtn extends StatelessWidget {
   const _KeyBtn({this.label, this.icon, required this.onTap});
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.all(7),
         child: Material(
-          color: label != null ? C.fill(context, .05) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: label != null ? t.key : Colors.transparent,
+          borderRadius: BorderRadius.circular(FinnTokens.rLg),
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(FinnTokens.rLg),
             onTap: onTap,
             child: SizedBox(
               height: 62,
               child: Center(child: label != null
-                  ? Text(label!, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: C.text(context)))
-                  : Icon(icon, size: 24, color: C.muted(context, .7))),
+                  ? Text(label!, style: FinnText.bigValue(t.ink))
+                  : Icon(icon, size: 24, color: t.ink2)),
             ),
           ),
         ),

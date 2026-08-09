@@ -1,21 +1,37 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:app_links/app_links.dart';
 
 import 'services/api.dart';
+import 'services/notifs.dart';
+import 'services/permits.dart';
 import 'services/idle_guard.dart';
 import 'services/theme.dart';
 import 'services/i18n.dart';
 import 'services/sfx.dart';
+import 'theme/finn_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/lock.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/pin_screen.dart';
+import 'services/push_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+/// FCM fon xabari — ilova yopiq/fonda bo'lganda OS o'zi ko'rsatadi,
+/// bu handler faqat ma'lumotli xabarlar uchun (bo'sh qoldirilsa ham bo'ladi).
+@pragma('vm:entry-point')
+Future<void> _fcmBackground(RemoteMessage message) async {}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_fcmBackground);
+  }
   runApp(const FinnApp());
 }
 
@@ -108,6 +124,8 @@ class FinnApp extends StatefulWidget {
 
 class _FinnAppState extends State<FinnApp> {
   Widget? _start;
+  AppLinks? _appLinks;
+  StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
@@ -115,7 +133,47 @@ class _FinnAppState extends State<FinnApp> {
     ThemeState.i.load();
     I18n.i.load();
     Sfx.i.load();
+    if (!kIsWeb) {
+      Notifs.i.init();
+      PushService.init();   // TZ 4.2.2 — push (finn-ec317)
+      // O'rnatishdan keyin bir marta: kamera, galereya, bildirishnoma, SMS ruxsati.
+      Permits.requestOnFirstLaunch();
+      _initDeepLinks();
+    }
     _decideStart();
+  }
+
+  /// OneID tashqi brauzer oqimi — `finnai://oneid?token=...` deep-link'ni ushlab,
+  /// token'ni saqlaymiz va HomeShell'ga o'tamiz (ilova ochiq ham, sovuq ham).
+  Future<void> _initDeepLinks() async {
+    _appLinks = AppLinks();
+    _linkSub = _appLinks!.uriLinkStream.listen(_onDeepLink, onError: (_) {});
+    try {
+      final initial = await _appLinks!.getInitialLink();
+      if (initial != null) _onDeepLink(initial);
+    } catch (_) {}
+  }
+
+  Future<void> _onDeepLink(Uri uri) async {
+    if (uri.scheme != 'finnai' || uri.host != 'oneid') return;
+    final token = uri.queryParameters['token'];
+    if (token == null || token.isEmpty) return;
+    await Api.setToken(token);
+    // OneID orqali kirdi — PIN bo'lmasa MAJBURIY o'rnatiladi (keyingi kirishlar
+    // passcode orqali, SMS/OneID emas). PIN bor bo'lsa to'g'ridan-to'g'ri ichkariga.
+    final hasPin = await Lock.hasPin();
+    navKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+          builder: (_) =>
+              hasPin ? const HomeShell() : const PinScreen(mode: 'set')),
+      (_) => false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
   }
 
   /// Boshlang'ich ekran:
@@ -183,6 +241,9 @@ class _FinnAppState extends State<FinnApp> {
       brightness: b,
       scaffoldBackgroundColor: dark ? C.bgDark : C.bgLight,
       colorScheme: scheme,
+      // FINN dizayn tokenlari — yangi ekranlar context.tokens orqali oladi.
+      // Eski (C klass) ekranlarga ta'sir qilmaydi; bu qo'shimcha manba.
+      extensions: [dark ? FinnTokens.dark : FinnTokens.light],
       textTheme: baseText,
       cardTheme: CardThemeData(
         color: dark ? C.cardDark : C.cardLight,

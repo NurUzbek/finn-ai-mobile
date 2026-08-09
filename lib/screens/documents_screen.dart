@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
-import '../services/api.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
 import '../widgets/common.dart';
+import '../services/api.dart';
+import '../services/i18n.dart';
 
 /// "Hujjatlar" moduli — shartnomalar + fakturalar (veb `#v-hujjat` bilan 1:1).
 /// Filtr chiplari (Hammasi / Shartnoma / Akt / Hisob-faktura) va holat bo'yicha
-/// guruhlar: "Imzo kutmoqda" va "Yaqinda".
+/// guruhlar: "Imzo kutmoqda" va "Yaqinda". PUSH ekran — FINN dizayn tizimi.
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
   @override
@@ -15,12 +17,19 @@ class DocumentsScreen extends StatefulWidget {
 /// Filtr turlari.
 enum _Kind { hammasi, shartnoma, akt, faktura }
 
-const _kindLabels = {
-  _Kind.hammasi: 'Hammasi',
-  _Kind.shartnoma: 'Shartnoma',
-  _Kind.akt: 'Akt',
-  _Kind.faktura: 'Hisob-faktura',
-};
+/// Filtr chipi yorlig'i — joriy tilda (`tr`).
+String _kindLabel(_Kind k) {
+  switch (k) {
+    case _Kind.hammasi:
+      return tr('doc.filter.all');
+    case _Kind.shartnoma:
+      return tr('doc.filter.contract');
+    case _Kind.akt:
+      return tr('doc.filter.act');
+    case _Kind.faktura:
+      return tr('doc.filter.invoice');
+  }
+}
 
 /// Bitta normallashtirilgan hujjat.
 class _Doc {
@@ -77,94 +86,139 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: C.bg(context),
-      body: SafeArea(
-        bottom: false,
-        child: Loader(
+    final t = context.tokens;
+    return FinnScreen(
+      title: tr('doc.title'),
+      subtitle: tr('doc.subtitle'),
+      showNav: false,
+      leading: _iconBtn(t, Icons.arrow_back_rounded,
+          onTap: () => Navigator.maybePop(context)),
+      actions: [
+        _iconBtn(t, Icons.search_rounded),
+        const SizedBox(width: 8),
+        _iconBtn(t, Icons.refresh_rounded, onTap: _refresh),
+      ],
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
           future: _f,
-          onRefresh: _refresh,
-          builder: (d) {
-            final all = <_Doc>[
-              ...((d['contracts'] as List?)?.cast<Map<String, dynamic>>() ?? const [])
-                  .map(_Doc.contract),
-              ...((d['invoices'] as List?)?.cast<Map<String, dynamic>>() ?? const [])
-                  .map(_Doc.invoice),
-            ];
-            final pendingTotal = all.where((x) => x.isPending).length;
-            final shown = _filter == _Kind.hammasi
-                ? all
-                : all.where((x) => x.kind == _filter).toList();
-            final pending = shown.where((x) => x.isPending).toList();
-            final recent = shown.where((x) => !x.isPending).toList();
-
-            return ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
-              children: [
-                ScreenHeader(
-                  title: 'Hujjatlar',
-                  icon: Icons.folder_rounded,
-                  subtitle:
-                      '${all.length} ta hujjat · $pendingTotal tasi imzo kutmoqda',
-                  action: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: C.card(context),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(color: C.border(context)),
-                    ),
-                    child: Icon(Icons.search_rounded,
-                        size: 19, color: C.muted(context, .6)),
-                  ),
-                ),
-                // Filtr chiplari.
-                SizedBox(
-                  height: 36,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    children: [
-                      for (final k in _Kind.values)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _Chip(
-                            label: _kindLabels[k]!,
-                            on: _filter == k,
-                            onTap: () => setState(() => _filter = k),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (shown.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: EmptyState(
-                      icon: Icons.description_outlined,
-                      text: 'Hujjat yo\'q',
-                      color: C.blue,
-                    ),
-                  ),
-                if (pending.isNotEmpty) ...[
-                  const _Eyebrow('Imzo kutmoqda'),
-                  for (var i = 0; i < pending.length; i++)
-                    StaggerIn(index: i, child: _Row(doc: pending[i])),
-                ],
-                if (recent.isNotEmpty) ...[
-                  const _Eyebrow('Yaqinda'),
-                  for (var i = 0; i < recent.length; i++)
-                    StaggerIn(
-                        index: pending.length + i, child: _Row(doc: recent[i])),
-                ],
-              ],
-            );
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final d = snap.data ?? {};
+            if (d['ok'] != true) return _err(t);
+            return _content(t, d);
           },
         ),
-      ),
+      ],
     );
   }
+
+  Widget _content(FinnTokens t, Map<String, dynamic> d) {
+    final all = <_Doc>[
+      ...((d['contracts'] as List?)?.cast<Map<String, dynamic>>() ?? const [])
+          .map(_Doc.contract),
+      ...((d['invoices'] as List?)?.cast<Map<String, dynamic>>() ?? const [])
+          .map(_Doc.invoice),
+    ];
+    final shown = _filter == _Kind.hammasi
+        ? all
+        : all.where((x) => x.kind == _filter).toList();
+    final pending = shown.where((x) => x.isPending).toList();
+    final recent = shown.where((x) => !x.isPending).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        // Filtr chiplari.
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              for (final k in _Kind.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _Chip(
+                    label: _kindLabel(k),
+                    on: _filter == k,
+                    onTap: () => setState(() => _filter = k),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (shown.isEmpty) _empty(t),
+        if (pending.isNotEmpty) ...[
+          _eyebrow(t, tr('doc.group.pending')),
+          for (var i = 0; i < pending.length; i++)
+            StaggerIn(index: i, child: _Row(doc: pending[i])),
+        ],
+        if (recent.isNotEmpty) ...[
+          _eyebrow(t, tr('doc.group.recent')),
+          for (var i = 0; i < recent.length; i++)
+            StaggerIn(index: pending.length + i, child: _Row(doc: recent[i])),
+        ],
+      ],
+    );
+  }
+
+  Widget _empty(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.description_outlined, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('doc.empty'), style: FinnText.body(t.ink3)),
+          ]),
+        ),
+      );
+
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('doc.offline'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _refresh, child: Text(tr('doc.retry'))),
+          ]),
+        ),
+      );
+
+  Widget _eyebrow(FinnTokens t, String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+        child: Row(children: [
+          Text(label.toUpperCase(), style: FinnText.eyebrow(t.ink3)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: t.line)),
+        ]),
+      );
+
+  // `.iconbtn,.back` — 36×36, radius 12, chegara, soyasiz.
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: t.line),
+          ),
+          child: Icon(ic, size: 18, color: t.ink2),
+        ),
+      );
 }
 
 /// Filtr chipi (--chip / .chip.on).
@@ -176,6 +230,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -184,45 +239,14 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? C.blue : C.card(context),
+          color: on ? t.blue : t.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: on ? C.blue : C.border(context)),
+          border: Border.all(color: on ? t.blue : t.line),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: on ? FontWeight.w700 : FontWeight.w600,
-            color: on ? Colors.white : C.muted(context, .6),
-          ),
-        ),
+        child: Text(label, style: FinnText.chip(on ? Colors.white : t.ink2)),
       ),
     );
   }
-}
-
-/// Bo'lim sarlavhasi (.eyebrow) — matn + ajratuvchi chiziq.
-class _Eyebrow extends StatelessWidget {
-  final String text;
-  const _Eyebrow(this.text);
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
-        child: Row(children: [
-          Text(
-            text.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-              color: C.muted(context, .45),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Container(height: 1, color: C.border(context))),
-        ]),
-      );
 }
 
 /// Hujjat qatori (.row) — ikonka + sarlavha/tavsif + holat pili.
@@ -232,7 +256,8 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final st = _style(context, doc);
+    final t = context.tokens;
+    final st = _style(t, doc);
     final sub = [
       if (doc.party.trim().isNotEmpty) doc.party.trim(),
       if (doc.date.trim().isNotEmpty) doc.date.trim(),
@@ -242,15 +267,16 @@ class _Row extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 9),
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: C.border(context)),
-        boxShadow: C.shadow(context),
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rLg),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
       ),
       child: Row(children: [
         Container(
           width: 38,
           height: 38,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: st.bg,
             borderRadius: BorderRadius.circular(12),
@@ -266,12 +292,7 @@ class _Row extends StatelessWidget {
                 doc.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                  color: C.text(context),
-                ),
+                style: FinnText.rowTitle(t.ink),
               ),
               if (sub.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -279,7 +300,7 @@ class _Row extends StatelessWidget {
                   sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45)),
+                  style: FinnText.rowSub(t.ink3),
                 ),
               ],
             ],
@@ -302,7 +323,7 @@ class _RowStyle {
   const _RowStyle(this.bg, this.fg, this.icon, this.pill);
 }
 
-_RowStyle _style(BuildContext c, _Doc d) {
+_RowStyle _style(FinnTokens t, _Doc d) {
   final s = d.status.toLowerCase();
   switch (s) {
     case 'signed':
@@ -311,23 +332,20 @@ _RowStyle _style(BuildContext c, _Doc d) {
     case 'accepted':
     case 'completed':
     case 'done':
-      return _RowStyle(C.tint(c, C.green), C.onGrn(c), Icons.check_rounded,
-          s == 'accepted' || s == 'paid' ? 'Qabul' : 'Imzolangan');
+      return _RowStyle(t.tGrn, t.onGrn, Icons.check_rounded,
+          s == 'accepted' || s == 'paid' ? tr('doc.pill.accepted') : tr('doc.pill.signed'));
     case 'rejected':
     case 'cancelled':
-      return _RowStyle(
-          C.tint(c, C.red), C.onRed(c), Icons.description_rounded, 'Risk');
+      return _RowStyle(t.tRed, t.onRed, Icons.description_rounded, tr('doc.pill.risk'));
     case 'pending':
     case 'draft':
     case 'new':
     case 'sent':
     case 'unsigned':
     case 'awaiting':
-      return _RowStyle(
-          C.tint(c, C.amber), C.onAmb(c), Icons.description_rounded, 'Imzo');
+      return _RowStyle(t.tAmb, t.onAmb, Icons.description_rounded, tr('doc.pill.sign'));
     default:
-      return _RowStyle(
-          C.fill(c), C.muted(c, .5), Icons.description_rounded, null);
+      return _RowStyle(t.key, t.ink3, Icons.description_rounded, null);
   }
 }
 
@@ -340,10 +358,8 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: fg),
-        ),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(FinnTokens.rLg)),
+        child: Text(text, style: FinnText.pill(fg)),
       );
 }

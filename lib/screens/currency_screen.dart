@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
 import '../services/api.dart';
+import '../services/i18n.dart';
 import '../widgets/common.dart';
 
 /// Valyuta kurslari ekrani — Markaziy bank rasmiy kurslari + konvertor.
-/// Dizayn: finn-app-full.html `#v-valyuta` bilan 1:1.
+/// FINN dizayn tizimi bo'yicha (FinnScreen + tokens + FinnText). PUSH ekran.
 class CurrencyScreen extends StatefulWidget {
   const CurrencyScreen({super.key});
 
@@ -14,166 +16,245 @@ class CurrencyScreen extends StatefulWidget {
 }
 
 class _CurrencyScreenState extends State<CurrencyScreen> {
-  late Future<Map<String, dynamic>> _future;
+  late Future<Map<String, dynamic>> _f = Api.currency();
+  String _sub = tr('cur.central_bank');
 
-  @override
-  void initState() {
-    super.initState();
-    _future = Api.currency();
-  }
+  Future<void> _refresh() async => setState(() => _f = Api.currency());
 
-  Future<void> _refresh() async {
-    setState(() => _future = Api.currency());
-    await _future;
-  }
-
-  /// Valyuta kodiga mos to'liq nom (o'zbekcha).
+  /// Valyuta kodiga mos to'liq nom (joriy tilda). Noma'lum kod — kodning o'zi.
   static String _name(String code) {
-    switch (code.toUpperCase()) {
-      case 'USD':
-        return 'AQSH dollari';
-      case 'EUR':
-        return 'Yevro';
-      case 'RUB':
-        return 'Rossiya rubli';
-      case 'KZT':
-        return 'Qozog\'iston tengesi';
-      case 'CNY':
-        return 'Xitoy yuani';
-      case 'GBP':
-        return 'Angliya funt sterlingi';
-      case 'JPY':
-        return 'Yaponiya iyenasi';
-      case 'CHF':
-        return 'Shveytsariya franki';
-      case 'TRY':
-        return 'Turkiya lirasi';
-      case 'KRW':
-        return 'Janubiy Koreya voni';
-      case 'AED':
-        return 'BAA dirhami';
-      case 'UAH':
-        return 'Ukraina grivnasi';
-      case 'KGS':
-        return 'Qirg\'iziston somi';
-      case 'TJS':
-        return 'Tojikiston somoniysi';
-      default:
-        return code;
-    }
-  }
-
-  /// Valyuta nishoni uchun akssent rangi.
-  static Color _codeColor(String code) {
-    switch (code.toUpperCase()) {
-      case 'USD':
-        return C.green;
-      case 'EUR':
-        return C.blue;
-      case 'RUB':
-        return C.red;
-      case 'GBP':
-        return C.cyan;
-      case 'CNY':
-        return C.amber;
-      case 'KZT':
-        return C.sky;
-      case 'JPY':
-        return C.violet;
-      default:
-        return C.teal;
-    }
+    const known = {
+      'USD', 'EUR', 'RUB', 'KZT', 'CNY', 'GBP', 'JPY', 'CHF',
+      'TRY', 'KRW', 'AED', 'UAH', 'KGS', 'TJS',
+    };
+    final up = code.toUpperCase();
+    if (!known.contains(up)) return code;
+    return tr('cur.name.${up.toLowerCase()}');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: C.bg(context),
-      body: SafeArea(
-        bottom: false,
+    final t = context.tokens;
+    return FinnScreen(
+      title: tr('cur.title'),
+      subtitle: _sub,
+      showNav: false,
+      leading: _iconBtn(t, Icons.arrow_back_rounded,
+          onTap: () => Navigator.of(context).maybePop()),
+      actions: [
+        _iconBtn(t, Icons.refresh_rounded, onTap: _refresh),
+      ],
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _f,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final d = snap.data ?? const {};
+            if (d['ok'] != true) return _err(t);
+            return _content(t, d);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _content(FinnTokens t, Map<String, dynamic> d) {
+    final rates = <Map<String, dynamic>>[];
+    final raw = d['rates'];
+    if (raw is List) {
+      for (final r in raw) {
+        if (r is Map) rates.add(Map<String, dynamic>.from(r));
+      }
+    }
+
+    if (rates.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 100),
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.currency_exchange_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('cur.no_rates'), style: FinnText.body(t.ink3)),
+          ]),
+        ),
+      );
+    }
+
+    // Sarlavha izohi — sana (birinchi qatordan).
+    final first = rates.first;
+    final date = (first['date'] ?? '').toString();
+    final cb = tr('cur.central_bank');
+    final newSub = date.isEmpty ? cb : '$cb · $date';
+    if (newSub != _sub) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _sub = newSub);
+      });
+    }
+
+    // Konvertor uchun USD kursi (bo'lmasa birinchi valyuta).
+    num usdRate = 0;
+    String convCode = 'USD';
+    for (final m in rates) {
+      if ((m['code'] ?? '').toString().toUpperCase() == 'USD') {
+        usdRate = _num(m['rate']);
+        convCode = 'USD';
+        break;
+      }
+    }
+    if (usdRate == 0) {
+      convCode = (rates.first['code'] ?? '').toString();
+      usdRate = _num(rates.first['rate']);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        StaggerIn(index: 0, child: _Converter(code: convCode, rate: usdRate)),
+        StaggerIn(index: 1, child: _eyebrow(t, tr('cur.official_rate'))),
+        StaggerIn(index: 2, child: _ratesGroup(t, rates)),
+        StaggerIn(
+          index: 3,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(
+              tr('cur.update_note'),
+              style: FinnText.rowSub(t.ink3),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('cur.no_connection'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _refresh, child: Text(tr('cur.retry'))),
+          ]),
+        ),
+      );
+
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            border: Border.all(color: t.line),
+            boxShadow: t.sh,
+          ),
+          child: Icon(ic, size: 19, color: t.ink2),
+        ),
+      );
+
+  Widget _eyebrow(FinnTokens t, String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+        child: Row(children: [
+          Text(label.toUpperCase(), style: FinnText.eyebrow(t.ink3)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: t.line)),
+        ]),
+      );
+
+  // ── Kurslar guruhi (bitta karta ichida qatorlar) ──
+  Widget _ratesGroup(FinnTokens t, List<Map<String, dynamic>> rates) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(FinnTokens.rXl),
+          border: Border.all(color: t.line),
+          boxShadow: t.sh,
+        ),
         child: Column(
           children: [
-            _Header(future: _future),
-            Expanded(
-              child: Loader(
-                future: _future,
-                onRefresh: _refresh,
-                builder: (data) {
-                  final rates = <Map<String, dynamic>>[];
-                  final raw = data['rates'];
-                  if (raw is List) {
-                    for (final r in raw) {
-                      if (r is Map) rates.add(Map<String, dynamic>.from(r));
-                    }
-                  }
-
-                  if (rates.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 80),
-                        EmptyState(
-                          icon: Icons.currency_exchange_rounded,
-                          text: 'Kurslar topilmadi',
-                          color: C.amber,
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Konvertor uchun USD kursi (bo'lmasa birinchi valyuta).
-                  num usdRate = 0;
-                  String convCode = 'USD';
-                  for (final m in rates) {
-                    if ((m['code'] ?? '').toString().toUpperCase() == 'USD') {
-                      usdRate = _num(m['rate']);
-                      convCode = 'USD';
-                      break;
-                    }
-                  }
-                  if (usdRate == 0) {
-                    convCode = (rates.first['code'] ?? '').toString();
-                    usdRate = _num(rates.first['rate']);
-                  }
-
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 122),
-                    children: [
-                      StaggerIn(
-                        index: 0,
-                        child: _Converter(code: convCode, rate: usdRate),
-                      ),
-                      const StaggerIn(index: 1, child: _Eyebrow('Rasmiy kurs')),
-                      StaggerIn(
-                        index: 2,
-                        child: _RatesGroup(
-                          rates: rates,
-                          nameOf: _name,
-                          colorOf: _codeColor,
-                        ),
-                      ),
-                      StaggerIn(
-                        index: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: Text(
-                            'Kurslar Markaziy bankdan har kuni soat 16:00 da yangilanadi.',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              height: 1.5,
-                              color: C.muted(context, .35),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+            for (int i = 0; i < rates.length; i++)
+              _fxRow(t, rates[i], last: i == rates.length - 1),
           ],
         ),
+      );
+
+  Widget _fxRow(FinnTokens t, Map<String, dynamic> data, {required bool last}) {
+    final code = (data['code'] ?? '—').toString();
+    final rate = _num(data['rate']);
+    final diff = _num(data['diff']);
+
+    final diffColor = diff > 0
+        ? t.onGrn
+        : diff < 0
+            ? t.onRed
+            : t.ink3;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border: last ? null : Border(bottom: BorderSide(color: t.line2)),
+      ),
+      child: Row(
+        children: [
+          // Valyuta nishoni (.flag — umumiy kalit foni, kod matni)
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: t.key,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Text(
+              code,
+              style: FinnText.rowValue(t.ink2).copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          const SizedBox(width: 13),
+          // Nom + birlik
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_name(code), style: FinnText.rowTitle(t.ink)),
+                const SizedBox(height: 2),
+                Text('1 $code', style: FinnText.rowSub(t.ink3)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Kurs + o'zgarish
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _dec(rate),
+                style: FinnText.rowValue(t.ink)
+                    .copyWith(fontSize: 15, letterSpacing: -0.375),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                _diffStr(diff),
+                style: FinnText.rowSub(diffColor),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -194,79 +275,6 @@ String _dec(num v) {
 String _diffStr(num d) {
   if (d == 0) return '0.00';
   return d > 0 ? '+${_dec(d.abs())}' : '−${_dec(d.abs())}';
-}
-
-// ── Sarlavha (orqaga tugmasi + kichik izoh) ──
-class _Header extends StatelessWidget {
-  final Future<Map<String, dynamic>> future;
-  const _Header({required this.future});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _BackButton(),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: future,
-              builder: (ctx, snap) {
-                String date = '';
-                final d = snap.data;
-                if (d != null && d['rates'] is List && (d['rates'] as List).isNotEmpty) {
-                  final first = (d['rates'] as List).first;
-                  if (first is Map) date = (first['date'] ?? '').toString();
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Valyuta kurslari',
-                      style: TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.7,
-                        height: 1.1,
-                        color: C.text(context),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      date.isEmpty ? 'Markaziy bank' : 'Markaziy bank · $date',
-                      style: TextStyle(fontSize: 12.5, color: C.muted(context, .5)),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BackButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).maybePop(),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: C.card(context),
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: C.border(context)),
-          boxShadow: C.shadow(context),
-        ),
-        child: Icon(Icons.chevron_left_rounded, size: 24, color: C.text(context)),
-      ),
-    );
-  }
 }
 
 // ── Konvertor kartasi ──
@@ -298,58 +306,51 @@ class _ConverterState extends State<_Converter> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final uzs = _amount * widget.rate;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(FinnTokens.cardPad),
       decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: C.border(context)),
-        boxShadow: C.shadow(context),
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rXl),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'KONVERTOR',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.3,
-              color: C.muted(context, .45),
-            ),
-          ),
+          Text(tr('cur.converter'), style: FinnText.label(t.ink3)),
           const SizedBox(height: 12),
           Row(
             children: [
               // Kiritish (valyuta)
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: C.fill(context),
-                    borderRadius: BorderRadius.circular(15),
+                    color: t.key,
+                    borderRadius: BorderRadius.circular(FinnTokens.rMd),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.code,
-                        style: TextStyle(fontSize: 11, color: C.muted(context, .45)),
-                      ),
+                      Text(widget.code,
+                          style:
+                              FinnText.rowSub(t.ink3).copyWith(fontSize: 11)),
                       const SizedBox(height: 3),
                       TextField(
                         controller: _ctrl,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         onChanged: (_) => setState(() {}),
-                        cursorColor: C.brand,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.4,
-                          color: C.text(context),
-                        ),
+                        cursorColor: t.blue,
+                        style: FinnText.bigValue(t.ink).copyWith(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0),
                         decoration: const InputDecoration(
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -362,203 +363,37 @@ class _ConverterState extends State<_Converter> {
                 ),
               ),
               const SizedBox(width: 10),
-              Icon(Icons.swap_horiz_rounded, size: 20, color: C.muted(context, .45)),
+              Icon(Icons.swap_horiz_rounded, size: 18, color: t.ink3),
               const SizedBox(width: 10),
               // Natija (UZS)
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: C.tint(context, C.brand),
-                    borderRadius: BorderRadius.circular(15),
+                    color: t.tBlu,
+                    borderRadius: BorderRadius.circular(FinnTokens.rMd),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'UZS',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: C.brand,
-                        ),
-                      ),
+                      Text('UZS',
+                          style:
+                              FinnText.rowSub(t.blue).copyWith(fontSize: 11)),
                       const SizedBox(height: 3),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
                           money(uzs),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.4,
-                            color: C.brand,
-                          ),
+                          style: FinnText.bigValue(t.blue).copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Bo'lim sarlavhasi (matn + chiziq) ──
-class _Eyebrow extends StatelessWidget {
-  final String text;
-  const _Eyebrow(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
-      child: Row(
-        children: [
-          Text(
-            text.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.4,
-              color: C.muted(context, .45),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Container(height: 1, color: C.border(context))),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Kurslar guruhi (bitta karta ichida qatorlar) ──
-class _RatesGroup extends StatelessWidget {
-  final List<Map<String, dynamic>> rates;
-  final String Function(String) nameOf;
-  final Color Function(String) colorOf;
-  const _RatesGroup({required this.rates, required this.nameOf, required this.colorOf});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: C.border(context)),
-        boxShadow: C.shadow(context),
-      ),
-      child: Column(
-        children: [
-          for (int i = 0; i < rates.length; i++)
-            _FxRow(
-              data: rates[i],
-              nameOf: nameOf,
-              colorOf: colorOf,
-              last: i == rates.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FxRow extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final String Function(String) nameOf;
-  final Color Function(String) colorOf;
-  final bool last;
-  const _FxRow({required this.data, required this.nameOf, required this.colorOf, required this.last});
-
-  @override
-  Widget build(BuildContext context) {
-    final code = (data['code'] ?? '—').toString();
-    final rate = _num(data['rate']);
-    final diff = _num(data['diff']);
-    final color = colorOf(code);
-
-    final diffColor = diff > 0
-        ? C.onGrn(context)
-        : diff < 0
-            ? C.onRed(context)
-            : C.muted(context, .4);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(bottom: BorderSide(color: C.border(context, .045))),
-      ),
-      child: Row(
-        children: [
-          // Valyuta nishoni (rangli kod)
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: C.tint(context, color),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Text(
-              code,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ),
-          const SizedBox(width: 13),
-          // Nom + birlik
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  nameOf(code),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: C.text(context),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '1 $code',
-                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .45)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Kurs + o'zgarish
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _dec(rate),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                  color: C.text(context),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                _diffStr(diff),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: diffColor,
                 ),
               ),
             ],

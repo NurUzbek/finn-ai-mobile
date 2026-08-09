@@ -41,4 +41,21 @@ const Map<String, Map<String, String>> tr = {
   'login.errSlow': {'uz': 'Ulanish sekin — internetni tekshiring', 'uzc': 'Уланиш секин — интернетни текширинг', 'ru': 'Медленное соединение — проверьте интернет', 'en': 'Slow connection — check your internet'},
   'login.errPageFailed': {'uz': 'Sahifa ochilmadi — qayta urining', 'uzc': 'Саҳифа очилмади — қайта уриниб кўринг', 'ru': 'Страница не открылась — попробуйте снова', 'en': 'Page failed to load — please try again'},
   'login.errAuthIncomplete': {'uz': 'Kirish yakunlanmadi — qayta urining', 'uzc': 'Кириш якунланмади — қайта уриниб кўринг', 'ru': 'Вход не завершён — попробуйте снова', 'en': 'Sign-in not completed — please try again'},
+
+  // ── PIN ekrani (o'rnatish / tasdiqlash / kirish) ──
+  'pin.titleSet': {'uz': 'PIN kod o\'rnating', 'uzc': 'PIN код ўрнатинг', 'ru': 'Установите PIN-код', 'en': 'Set a PIN code'},
+  'pin.titleConfirm': {'uz': 'PINni tasdiqlang', 'uzc': 'PINни тасдиқланг', 'ru': 'Подтвердите PIN', 'en': 'Confirm your PIN'},
+  'pin.titleUnlock': {'uz': 'FINN AI', 'uzc': 'FINN AI', 'ru': 'FINN AI', 'en': 'FINN AI'},
+  'pin.subSet': {'uz': 'Kirish uchun 4 xonali kod', 'uzc': 'Кириш учун 4 хонали код', 'ru': '4-значный код для входа', 'en': '4-digit code to sign in'},
+  'pin.subConfirm': {'uz': 'Xuddi shu 4 raqamni qayta kiriting', 'uzc': 'Худди шу 4 рақамни қайта киритинг', 'ru': 'Введите те же 4 цифры ещё раз', 'en': 'Enter the same 4 digits again'},
+  'pin.subUnlock': {'uz': 'Kirish uchun PIN kodni kiriting', 'uzc': 'Кириш учун PIN кодни киритинг', 'ru': 'Введите PIN-код для входа', 'en': 'Enter your PIN code to sign in'},
+  'pin.mismatch': {'uz': 'PIN mos kelmadi, qaytadan', 'uzc': 'PIN мос келмади, қайтадан', 'ru': 'PIN не совпал, повторите', 'en': 'PIN did not match, try again'},
+  'pin.wrong': {'uz': 'Noto\'g\'ri PIN', 'uzc': 'Нотўғри PIN', 'ru': 'Неверный PIN', 'en': 'Incorrect PIN'},
+  'pin.otherNumber': {'uz': 'Boshqa raqam bilan kirish', 'uzc': 'Бошқа рақам билан кириш', 'ru': 'Войти с другого номера', 'en': 'Sign in with a different number'},
+
+  // ── PIN — biometrika dialogi ──
+  'pin.bioTitle': {'uz': 'Face ID / Barmoq izi', 'uzc': 'Face ID / Бармоқ изи', 'ru': 'Face ID / Отпечаток пальца', 'en': 'Face ID / Fingerprint'},
+  'pin.bioBody': {'uz': 'Keyingi safar tezroq kirish uchun biometrikani yoqasizmi?', 'uzc': 'Кейинги сафар тезроқ кириш учун биометрикани ёқасизми?', 'ru': 'Включить биометрию для быстрого входа в следующий раз?', 'en': 'Enable biometrics for faster sign-in next time?'},
+  'pin.bioLater': {'uz': 'Keyin', 'uzc': 'Кейин', 'ru': 'Позже', 'en': 'Later'},
+  'pin.bioEnable': {'uz': 'Yoqish', 'uzc': 'Ёқиш', 'ru': 'Включить', 'en': 'Enable'},
 };

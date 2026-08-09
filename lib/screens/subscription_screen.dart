@@ -1,15 +1,20 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../main.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
 import '../services/api.dart';
 import '../services/plan.dart';
 import '../services/i18n.dart';
 
 /// Native tarif/to'lov ekrani — WebView emas. Tariflar API'dan (`/plans`),
 /// to'lov `/checkout` orqali yaratiladi. Faqat provayder to'lov sahifasi
-/// (Payme/Click, PCI) minimal WebView'da ochiladi.
-/// Subscription ekranini ochish (profile / locked widgetlar ishlatadi).
+/// (Payme/Click, PCI) minimal WebView'da ochiladi. PUSH ekran — FINN dizayn tizimi.
+///
+/// KO'RINISH: HTML prototip `v-tarif` bo'limiga 1:1 — limit banneri (.lim),
+/// oylik/yillik toggle (.tr-per), akkordeon tarif ro'yxati (.pl-list),
+/// solishtirish jadvali (.cmp), izoh (.tr-note). Ma'lumot/to'lov mantig'i saqlanadi.
 void openSubscription(BuildContext context) {
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionScreen()));
 }
@@ -21,36 +26,17 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  bool _loading = true;
-  String? _error;
-  List<dynamic> _plans = [];
-  Map<String, dynamic>? _current;
+  late Future<Map<String, dynamic>> _f = Api.plans();
   String _cycle = 'monthly';
   bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  /// Akkordeonda ochiq tarif (joriy tarifdan tashqari — u doim ochiq).
+  String? _selected;
+  bool _compareOpen = false;
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final r = await Api.plans();
-      if (r['ok'] == true) {
-        setState(() {
-          _plans = (r['plans'] as List?) ?? [];
-          _current = r['current'] as Map<String, dynamic>?;
-          _loading = false;
-        });
-      } else {
-        setState(() { _error = r['message']?.toString() ?? tr('state.error'); _loading = false; });
-      }
-    } catch (e) {
-      setState(() { _error = tr('state.noConnection'); _loading = false; });
-    }
-  }
+  bool get _yearly => _cycle == 'yearly';
+
+  Future<void> _refresh() async => setState(() => _f = Api.plans());
 
   String _fmt(num v) {
     final s = v.round().toString();
@@ -62,140 +48,265 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return b.toString();
   }
 
-  Widget _gradBtn(String label, VoidCallback onTap) => GestureDetector(
-        onTap: _busy ? null : onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: C.grad,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [BoxShadow(color: C.brand.withValues(alpha: .3), blurRadius: 16, offset: const Offset(0, 6))],
-          ),
-          child: Center(child: Text(label,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14.5))),
-        ),
-      );
+  /// Joriy tildagi shablonga qiymatlarni qo'yadi.
+  String _fill(String key, Map<String, String> vars) {
+    var s = tr(key);
+    vars.forEach((k, v) => s = s.replaceAll('{$k}', v));
+    return s;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: C.bg(context),
-      appBar: AppBar(
-        backgroundColor: C.bg(context),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(tr('sub.title'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-        actions: [IconButton(onPressed: _load, icon: Icon(Icons.refresh, color: C.muted(context, .7)))],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _errorView()
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-                    children: [
-                      _currentHeader(),
-                      const SizedBox(height: 20),
-                      _cycleToggle(),
-                      const SizedBox(height: 16),
-                      ..._plans.map((p) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _planCard(p as Map<String, dynamic>),
-                          )),
-                      const SizedBox(height: 6),
-                      Text(
-                        tr('sub.footer'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, height: 1.6, color: C.muted(context, .5)),
-                      ),
-                    ],
-                  ),
-                ),
+    final t = context.tokens;
+    return FinnScreen(
+      title: tr('sub.pickTitle'),
+      subtitle: tr('sub.pickSub'),
+      showNav: false,
+      leading: _iconBtn(t, Icons.arrow_back_rounded,
+          onTap: () => Navigator.maybePop(context)),
+      actions: [
+        _iconBtn(t, Icons.refresh_rounded, onTap: _refresh),
+      ],
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _f,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final d = snap.data ?? {};
+            if (d['ok'] != true) return _err(t);
+            return _content(t, d);
+          },
+        ),
+      ],
     );
   }
 
-  Widget _errorView() => Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.cloud_off, size: 44, color: C.muted(context, .4)),
-          const SizedBox(height: 12),
-          Text(_error ?? tr('state.error'), style: TextStyle(color: C.muted(context, .7))),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: _load, child: Text(tr('common.retry'))),
-        ]),
-      );
+  Widget _content(FinnTokens t, Map<String, dynamic> d) {
+    final plans = ((d['plans'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final current = d['current'] as Map<String, dynamic>?;
 
-  Widget _currentHeader() {
-    final name = _current?['name']?.toString() ?? 'FREE';
-    final days = _current?['days_left'];
-    final isTrial = _current?['is_trial'] == true;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: [C.blue.withValues(alpha: .18), C.cyan.withValues(alpha: .08)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+    // Standart tanlov: mashhur tarif, aks holda joriy bo'lmagan birinchisi.
+    if (_selected == null) {
+      final popular = plans.firstWhere(
+        (p) => p['popular'] == true && p['is_current'] != true,
+        orElse: () => <String, dynamic>{},
+      );
+      _selected = (popular['slug'] ??
+              plans.firstWhere((p) => p['is_current'] != true,
+                  orElse: () => <String, dynamic>{})['slug'])
+          ?.toString();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12), // .lim margin-top
+        _limBanner(t, current),
+        const SizedBox(height: 14), // .tr-per margin-top
+        _cycleToggle(t),
+        const SizedBox(height: 9), // .save-hint margin-top
+        SizedBox(
+          height: 16, // .save-hint min-height
+          child: _yearly
+              ? Center(
+                  child: Text(tr('sub.saveHint'),
+                      style: FinnText.rowSub(t.onGrn)
+                          .copyWith(fontSize: 12, fontWeight: FontWeight.w500)),
+                )
+              : null,
         ),
-        border: Border.all(color: C.cyan.withValues(alpha: .22)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 46, height: 46,
-          decoration: BoxDecoration(color: C.cyan.withValues(alpha: .16), borderRadius: BorderRadius.circular(14)),
-          child: const Icon(Icons.workspace_premium_outlined, color: C.cyan, size: 24),
+        const SizedBox(height: 12), // .pl-list margin-top
+        for (int i = 0; i < plans.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10), // .pl-list gap
+          _planCard(t, plans[i]),
+        ],
+        const SizedBox(height: 14), // .cmp margin-top
+        _compareBox(t, plans),
+        const SizedBox(height: 14), // .tr-note margin-top
+        Text(
+          tr('sub.trNote'),
+          textAlign: TextAlign.center,
+          style: FinnText.rowSub(t.ink4).copyWith(fontSize: 11.5, height: 1.55),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr('sub.currentPlan'), style: TextStyle(fontSize: 12, color: C.muted(context, .6), fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: C.text(context), letterSpacing: -.5)),
+      ],
+    );
+  }
+
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('state.noConnection'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _refresh, child: Text(tr('common.retry'))),
           ]),
         ),
-        if (isTrial && days != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: C.amber.withValues(alpha: .16), borderRadius: BorderRadius.circular(999)),
-            child: Text('$days ${tr('sub.days')}', style: const TextStyle(color: C.amber, fontWeight: FontWeight.w800, fontSize: 12)),
+      );
+
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            border: Border.all(color: t.line),
+            boxShadow: t.sh,
           ),
-      ]),
+          child: Icon(ic, size: 19, color: t.ink2),
+        ),
+      );
+
+  // ══════════════════════════ .lim — limit banneri ══════════════════════════
+  Widget _limBanner(FinnTokens t, Map<String, dynamic>? current) {
+    final name = current?['name']?.toString() ?? 'FREE';
+    final feats = (current?['features'] as Map?) ?? {};
+    final limit = ((feats['orgs_limit'] as num?) ?? 1).toInt();
+    final total = limit < 1 ? 1 : limit;
+    final segCount = total.clamp(1, 8);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rXl),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: t.tAmb,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.amber.withValues(alpha: .28)),
+              ),
+              child: Icon(Icons.lock_outline_rounded, size: 18, color: t.onAmb),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$name ${tr('sub.mode')}',
+                      style: FinnText.rowValue(t.ink).copyWith(
+                          fontSize: 14.5, letterSpacing: -0.29)),
+                  const SizedBox(height: 2),
+                  Text(
+                    _fill('sub.orgsBand',
+                        {'n': '$total', 'u': '$total'}),
+                    style: FinnText.rowSub(t.ink3).copyWith(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text('$total/$total',
+                style: FinnText.rowValue(t.onAmb)
+                    .copyWith(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.51)),
+          ]),
+          const SizedBox(height: 13),
+          Row(children: [
+            for (int i = 0; i < segCount; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: t.amber,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 11),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(Icons.warning_amber_rounded, size: 14, color: t.onAmb),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('sub.limNote'),
+                    style: FinnText.rowSub(t.onAmb)
+                        .copyWith(fontSize: 12, height: 1.45)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _cycleToggle() {
-    Widget seg(String v, String label, {bool locked = false}) {
-      final on = _cycle == v && !locked;
+  // ══════════════════════════ .tr-per — sikl toggle ══════════════════════════
+  Widget _cycleToggle(FinnTokens t) {
+    Widget seg(String v, Widget child) {
+      final on = _cycle == v;
       return Expanded(
         child: GestureDetector(
-          onTap: locked ? null : () => setState(() => _cycle = v),
+          onTap: () => setState(() => _cycle = v),
+          behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: on ? C.brand : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            duration: const Duration(milliseconds: 300),
+            curve: FinnTokens.ease,
+            height: 38,
             alignment: Alignment.center,
-            child: locked
-                ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.lock_outline_rounded, size: 13, color: C.muted(context, .4)),
-                    const SizedBox(width: 5),
-                    Text('${tr('sub.yearly')} · ${tr('common.comingSoon')}',
-                        style: TextStyle(color: C.muted(context, .4), fontWeight: FontWeight.w600, fontSize: 13)),
-                  ])
-                : Text(label, style: TextStyle(
-                    color: on ? Colors.white : C.muted(context, .7),
-                    fontWeight: FontWeight.w700, fontSize: 14)),
+            decoration: BoxDecoration(
+              color: on ? t.card : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: on ? t.sh : null,
+            ),
+            child: child,
           ),
         ),
       );
     }
 
+    final monStyle = FinnText.button(_cycle == 'monthly' ? t.ink : t.ink2)
+        .copyWith(fontSize: 13.5, letterSpacing: -0.2);
+    final yrStyle = FinnText.button(_cycle == 'yearly' ? t.ink : t.ink2)
+        .copyWith(fontSize: 13.5, letterSpacing: -0.2);
+
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: C.fill(context, .05), borderRadius: BorderRadius.circular(14)),
-      child: Row(children: [seg('monthly', tr('sub.monthly')), seg('yearly', tr('sub.yearly'), locked: true)]),
+      decoration: BoxDecoration(
+        color: t.key,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(children: [
+        seg('monthly', Text(tr('sub.monthly'), style: monStyle)),
+        const SizedBox(width: 3),
+        seg(
+          'yearly',
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('sub.yearly'), style: yrStyle),
+            const SizedBox(width: 6),
+            Text('−20%',
+                style: FinnText.pill(t.onGrn)
+                    .copyWith(fontSize: 11.5, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      ]),
     );
   }
 
@@ -211,140 +322,353 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     ('team', 'sub.feat.team'),
   ];
 
-  Widget _planCard(Map<String, dynamic> p) {
+  String _amount(Map<String, dynamic> p) {
+    final price = ((_yearly ? p['yearly'] : p['monthly']) as num?) ?? 0;
+    final slug = p['slug']?.toString() ?? '';
+    if (price <= 0) return slug == 'free' ? '0' : tr('sub.custom');
+    return _fmt(price);
+  }
+
+  String _unit(Map<String, dynamic> p) {
+    final price = ((_yearly ? p['yearly'] : p['monthly']) as num?) ?? 0;
+    final slug = p['slug']?.toString() ?? '';
+    if (price <= 0) {
+      return slug == 'free' ? tr('sub.trialUnit') : tr('sub.individual');
+    }
+    return _yearly ? tr('sub.somPerYear') : tr('sub.somPerMonth');
+  }
+
+  // ══════════════════════════ .pl — tarif kartasi ══════════════════════════
+  Widget _planCard(FinnTokens t, Map<String, dynamic> p) {
     final slug = p['slug']?.toString() ?? '';
     final popular = p['popular'] == true;
     final isCurrent = p['is_current'] == true;
-    final price = (p['monthly'] ?? 0) as num;
-    final feats = ((p['features'] as List?) ?? []).map((e) => e.toString()).toSet();
-    final free = price <= 0;
-    final trial = free && slug != 'free' && (p['is_trial'] == true || slug == 'start');
-    final borderColor = isCurrent ? C.green : (popular ? C.brand : C.border(context));
+    final isCustom = (((p['monthly'] as num?) ?? 0) <= 0) && slug != 'free';
+    final feats =
+        ((p['features'] as List?) ?? []).map((e) => e.toString()).toSet();
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: C.card(context),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: borderColor, width: (isCurrent || popular) ? 1.5 : 1),
-        boxShadow: popular
-            ? [BoxShadow(color: C.brand.withValues(alpha: .18), blurRadius: 28, offset: const Offset(0, 12))]
-            : C.shadow(context),
-      ),
-      child: Stack(children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Text(p['name']?.toString() ?? slug,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -.4, color: C.text(context))),
-              const SizedBox(width: 10),
-              if (isCurrent)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: C.tint(context, C.green), borderRadius: BorderRadius.circular(20)),
-                  child: Text(tr('sub.current'), style: TextStyle(color: C.onGrn(context), fontWeight: FontWeight.w600, fontSize: 11.5)),
-                ),
-            ]),
-            const SizedBox(height: 10),
-            Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-              Text(free ? '0' : _fmt(price),
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: C.text(context),
-                      letterSpacing: -1.4, fontFeatures: const [FontFeature.tabularFigures()])),
-              const SizedBox(width: 6),
-              Text(tr('sub.somPerMonth'), style: TextStyle(fontSize: 13, color: C.muted(context, .5), fontWeight: FontWeight.w500)),
-            ]),
-            if ((p['description']?.toString() ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(p['description'].toString(), style: TextStyle(fontSize: 13, color: C.muted(context, .6), height: 1.5)),
-            ],
-            const SizedBox(height: 16),
-            ..._matrix.map((m) {
-              final has = feats.contains(m.$1);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: Row(children: [
-                  Container(
-                    width: 19, height: 19, alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: has ? C.tint(context, C.green) : C.fill(context, .06),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(has ? Icons.check_rounded : Icons.close_rounded,
-                        size: 12, color: has ? C.onGrn(context) : C.muted(context, .35)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(tr(m.$2),
-                      style: TextStyle(fontSize: 13.5, height: 1.3,
-                          color: has ? C.muted(context, .8) : C.muted(context, .4)))),
-                ]),
-              );
-            }),
-            const SizedBox(height: 17),
-            SizedBox(
-              width: double.infinity, height: 48,
-              child: isCurrent
-                  ? DecoratedBox(
-                      decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
-                      child: Center(child: Text(tr('sub.currentMode'),
-                          style: TextStyle(color: C.muted(context, .55), fontWeight: FontWeight.w600, fontSize: 14.5))),
-                    )
-                  : (popular || trial)
-                      ? _gradBtn(trial ? tr('sub.trial14') : tr('common.select'), () => _openPaymentSheet(p))
-                      : GestureDetector(
-                          onTap: _busy ? null : () => _openPaymentSheet(p),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(color: C.fill(context, .06), borderRadius: BorderRadius.circular(15)),
-                            child: Center(child: Text(tr('common.select'),
-                                style: TextStyle(color: C.text(context), fontWeight: FontWeight.w600, fontSize: 14.5))),
-                          ),
-                        ),
-            ),
-            if (trial) ...[
-              const SizedBox(height: 10),
-              Center(child: Text(tr('sub.noCard'),
-                  style: TextStyle(fontSize: 11.5, color: C.muted(context, .5)))),
-            ],
-          ]),
+    final expanded = isCurrent || _selected == slug;
+    final accent = isCurrent ? t.green : t.blue;
+    final borderColor = expanded ? accent : t.line;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isCurrent ? null : () => setState(() => _selected = slug),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: FinnTokens.ease,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(FinnTokens.rXl),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: t.sh,
         ),
-        if (popular)
-          Positioned(
-            top: 0, right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-              decoration: const BoxDecoration(
-                gradient: C.grad,
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(9), bottomRight: Radius.circular(9)),
+        child: Stack(children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── .pl-h — sarlavha ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+                child: Row(children: [
+                  _radio(t, expanded, accent),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(p['name']?.toString() ?? slug,
+                            style: FinnText.button(t.ink)
+                                .copyWith(fontSize: 15.5, letterSpacing: -0.37)),
+                        const SizedBox(height: 2),
+                        Text(
+                          p['description']?.toString() ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: FinnText.rowSub(t.ink3).copyWith(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_amount(p),
+                          style: FinnText.rowValue(t.ink).copyWith(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.68)),
+                      const SizedBox(height: 2),
+                      Text(_unit(p),
+                          style:
+                              FinnText.rowSub(t.ink3).copyWith(fontSize: 10.5)),
+                    ],
+                  ),
+                ]),
               ),
-              child: Text(tr('sub.popular'),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: .8)),
-            ),
+              // ── .pl-b — akkordeon tana ──
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: FinnTokens.ease,
+                alignment: Alignment.topCenter,
+                child: expanded
+                    ? _planBody(t, p, feats, isCurrent, isCustom)
+                    : const SizedBox(width: double.infinity),
+              ),
+            ],
           ),
+          // ── .pl-tag ──
+          if (isCurrent)
+            _tag(t, tr('sub.current'), t.green)
+          else if (popular)
+            _tag(t, tr('sub.popular'), t.blue),
+        ]),
+      ),
+    );
+  }
+
+  Widget _radio(FinnTokens t, bool on, Color accent) => AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: FinnTokens.ease,
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: on ? accent : t.ink4,
+            width: on ? 7 : 1.5,
+          ),
+        ),
+      );
+
+  Widget _planBody(FinnTokens t, Map<String, dynamic> p, Set<String> feats,
+      bool isCurrent, bool isCustom) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final m in _matrix) _featRow(t, m.$1, tr(m.$2), feats.contains(m.$1)),
+          const SizedBox(height: 14), // .pl-go margin-top
+          isCurrent
+              ? _planButton(t, tr('sub.currentMode'), ghost: true, onTap: null)
+              : _planButton(
+                  t,
+                  isCustom ? tr('sub.contact') : tr('common.select'),
+                  ghost: false,
+                  onTap: _busy ? null : () => _openPaymentSheet(t, p),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _featRow(FinnTokens t, String flag, String label, bool has) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: t.line2)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 18,
+          height: 18,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: has ? t.tGrn : t.key,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(has ? Icons.check_rounded : Icons.close_rounded,
+              size: 12, color: has ? t.onGrn : t.ink4),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(label,
+              style: FinnText.chip(has ? t.ink : t.ink3)
+                  .copyWith(fontWeight: FontWeight.w400)),
+        ),
       ]),
     );
   }
 
-  void _openPaymentSheet(Map<String, dynamic> plan) {
+  Widget _planButton(FinnTokens t, String label,
+      {required bool ghost, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 46,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: ghost ? t.key : null,
+          gradient: ghost ? null : FinnTokens.brand,
+          borderRadius: BorderRadius.circular(FinnTokens.rMd),
+          boxShadow: ghost
+              ? null
+              : [
+                  BoxShadow(
+                      color: t.blue2.withValues(alpha: .28),
+                      blurRadius: 20,
+                      offset: const Offset(0, 7))
+                ],
+        ),
+        child: Text(label,
+            style: FinnText.button(ghost ? t.ink2 : Colors.white)
+                .copyWith(fontSize: 14.5, letterSpacing: -0.22)),
+      ),
+    );
+  }
+
+  Widget _tag(FinnTokens t, String label, Color bg) => Positioned(
+        top: 0,
+        right: 16,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(8), bottomRight: Radius.circular(8)),
+          ),
+          child: Text(label.toUpperCase(),
+              style: FinnText.label(Colors.white).copyWith(
+                  fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.81)),
+        ),
+      );
+
+  // ══════════════════════════ .cmp — solishtirish jadvali ══════════════════════════
+  Widget _compareBox(FinnTokens t, List<Map<String, dynamic>> plans) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rXl),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _compareOpen = !_compareOpen),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(children: [
+              Expanded(
+                child: Text(tr('sub.compare'),
+                    style: FinnText.cardTitle(t.ink)
+                        .copyWith(fontSize: 14, letterSpacing: -0.28)),
+              ),
+              AnimatedRotation(
+                turns: _compareOpen ? 0.5 : 0,
+                duration: const Duration(milliseconds: 400),
+                curve: FinnTokens.spring,
+                child: Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 20, color: t.ink3),
+              ),
+            ]),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: FinnTokens.ease,
+          alignment: Alignment.topCenter,
+          child: _compareOpen
+              ? _compareTable(t, plans)
+              : const SizedBox(width: double.infinity),
+        ),
+      ]),
+    );
+  }
+
+  Widget _compareTable(FinnTokens t, List<Map<String, dynamic>> plans) {
+    String short(String n) {
+      if (n.toLowerCase().startsWith('enter')) return 'Ent.';
+      return n.length > 4 ? n.substring(0, 4) : n;
+    }
+
+    final headStyle = FinnText.rowValue(t.ink)
+        .copyWith(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0);
+    final nameStyle = FinnText.rowSub(t.ink2).copyWith(fontSize: 11.5);
+    final yStyle = FinnText.rowSub(t.onGrn)
+        .copyWith(fontSize: 11.5, fontWeight: FontWeight.w700);
+    final nStyle = FinnText.rowSub(t.ink4).copyWith(fontSize: 11.5);
+
+    Widget cell(Widget child, {bool first = false}) => Container(
+          height: 34,
+          alignment: first ? Alignment.centerLeft : Alignment.center,
+          padding: first
+              ? const EdgeInsets.only(left: 16, right: 6)
+              : const EdgeInsets.symmetric(horizontal: 6),
+          child: child,
+        );
+
+    TableRow row(List<Widget> cells, {bool header = false}) => TableRow(
+          decoration: header
+              ? null
+              : BoxDecoration(border: Border(top: BorderSide(color: t.line2))),
+          children: cells,
+        );
+
+    final colWidths = <int, TableColumnWidth>{
+      0: const FixedColumnWidth(140),
+      for (int i = 0; i < plans.length; i++)
+        i + 1: const FixedColumnWidth(62),
+    };
+
+    final rows = <TableRow>[
+      row(header: true, [
+        cell(const SizedBox(), first: true),
+        for (final p in plans)
+          cell(Text(short(p['name']?.toString() ?? ''), style: headStyle)),
+      ]),
+      for (final m in _matrix)
+        row([
+          cell(Text(tr(m.$2), style: nameStyle, maxLines: 2), first: true),
+          for (final p in plans)
+            cell(() {
+              final has = ((p['features'] as List?) ?? [])
+                  .map((e) => e.toString())
+                  .contains(m.$1);
+              return Text(has ? '✓' : '—',
+                  style: has ? yStyle : nStyle);
+            }()),
+        ]),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 140 + plans.length * 62,
+        child: Table(columnWidths: colWidths, children: rows),
+      ),
+    );
+  }
+
+  void _openPaymentSheet(FinnTokens t, Map<String, dynamic> plan) {
     final methods = [
-      (id: 'payme', label: 'Payme', color: const Color(0xFF33CCCC), icon: Icons.credit_card),
-      (id: 'click', label: 'Click', color: const Color(0xFF00A5EC), icon: Icons.credit_card),
-      (id: 'uzum', label: 'Uzum Bank', color: const Color(0xFF7C3AED), icon: Icons.account_balance_wallet_outlined),
-      (id: 'paynet', label: 'Paynet', color: const Color(0xFF1BA0E2), icon: Icons.account_balance_wallet_outlined),
+      (id: 'payme', label: 'Payme', color: t.teal, icon: Icons.credit_card),
+      (id: 'click', label: 'Click', color: t.blue, icon: Icons.credit_card),
+      (id: 'uzum', label: 'Uzum Bank', color: t.purple, icon: Icons.account_balance_wallet_outlined),
+      (id: 'paynet', label: 'Paynet', color: t.cyan, icon: Icons.account_balance_wallet_outlined),
     ];
     showModalBottomSheet(
       context: context,
-      backgroundColor: C.card(context),
+      backgroundColor: t.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: C.muted(context, .2), borderRadius: BorderRadius.circular(4)))),
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: t.ink4, borderRadius: BorderRadius.circular(4)))),
             const SizedBox(height: 16),
-            Text(tr('sub.choosePayment'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: C.text(context))),
+            Text(tr('sub.choosePayment'), style: FinnText.cardTitle(t.ink)),
             const SizedBox(height: 4),
             Text('${plan['name']} · ${_fmt((_cycle == 'yearly' ? plan['yearly'] : plan['monthly']) as num)} ${tr('common.som')}',
-                style: TextStyle(fontSize: 13, color: C.muted(context, .6))),
+                style: FinnText.rowSub(t.ink2)),
             const SizedBox(height: 16),
             ...methods.map((m) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -354,9 +678,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: C.fill(context, .04),
+                        color: t.line2,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: C.border(context)),
+                        border: Border.all(color: t.line),
                       ),
                       child: Row(children: [
                         Container(
@@ -365,8 +689,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           child: Icon(m.icon, color: m.color, size: 20),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(child: Text(m.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: C.text(context)))),
-                        Icon(Icons.chevron_right, color: C.muted(context, .4)),
+                        Expanded(child: Text(m.label, style: FinnText.rowTitle(t.ink))),
+                        Icon(Icons.chevron_right, color: t.ink3),
                       ]),
                     ),
                   ),
@@ -390,25 +714,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _snack(tr('sub.linkFailed'));
         return;
       }
-      if (provider == 'uzum' || provider == 'paynet') {
-        // To'lov ilovasini ochamiz (deep-link)
-        final uri = Uri.tryParse(url);
-        if (uri != null && await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          _snack('${provider == 'uzum' ? 'Uzum' : 'Paynet'} ${tr('sub.appNotFound')}');
+      // BARCHA provayderlar (Payme/Click/Uzum/Paynet) — avval TASHQI BRAUZER (Chrome).
+      // Provayder sahifasidagi "Ilovada ochish" tugmasi (deep-link/intent) FAQAT
+      // brauzerda ishlaydi; ichki WebView uni bloklaydi — shuning uchun WebView
+      // faqat OXIRGI zaxira. (Avval Payme/Click doim WebView'da ochilib, deep-link
+      // ishlamas edi — asosiy muammo shu edi.)
+      final uri = Uri.tryParse(url);
+      var launched = false;
+      if (uri != null) {
+        try {
+          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {
+          launched = false;
         }
-      } else {
-        // Payme/Click/bank — minimal to'lov sahifasi (WebView, faqat provayder)
-        if (!mounted) return;
+        if (!launched) {
+          try {
+            launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+          } catch (_) {
+            launched = false;
+          }
+        }
+      }
+      if (!launched && !kIsWeb && mounted) {
         final paid = await Navigator.of(context).push<bool>(
           MaterialPageRoute(builder: (_) => _PaymentPage(url: url)),
         );
         if (paid == true) {
           await PlanState.i.load();
-          _snack('${tr('sub.paid')} ✓', ok: true);
-          _load();
+          _snack(tr('sub.paid'), ok: true);
+          _refresh();
         }
+      } else if (!launched) {
+        _snack(tr('sub.linkFailed'));
       }
     } catch (e) {
       _snack(tr('state.error'));
@@ -419,9 +756,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   void _snack(String m, {bool ok = false}) {
     if (!mounted) return;
+    final t = context.tokens;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(m),
-      backgroundColor: ok ? C.green : null,
+      backgroundColor: ok ? t.green : null,
       behavior: SnackBarBehavior.floating,
     ));
   }
@@ -461,16 +799,23 @@ class _PaymentPageState extends State<_PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Scaffold(
-      backgroundColor: C.bg(context),
+      backgroundColor: t.bg,
       appBar: AppBar(
-        backgroundColor: C.bg(context),
+        backgroundColor: t.bg,
         elevation: 0,
-        title: Text(tr('sub.payment'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+        surfaceTintColor: Colors.transparent,
+        iconTheme: IconThemeData(color: t.ink2),
+        title: Text(tr('sub.payment'), style: FinnText.cardTitle(t.ink).copyWith(fontSize: 17)),
         bottom: _progress < 100
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(2),
-                child: LinearProgressIndicator(value: _progress / 100, minHeight: 2, backgroundColor: Colors.transparent))
+                child: LinearProgressIndicator(
+                    value: _progress / 100,
+                    minHeight: 2,
+                    color: t.blue,
+                    backgroundColor: Colors.transparent))
             : null,
       ),
       body: _c == null ? const SizedBox() : WebViewWidget(controller: _c!),

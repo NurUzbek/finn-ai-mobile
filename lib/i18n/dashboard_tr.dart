@@ -88,4 +88,23 @@ const Map<String, Map<String, String>> tr = {
     'ru': 'Серьёзных рисков не обнаружено. Есть вопрос — спросите у консультанта Finn AI.',
     'en': 'No serious risks detected. If you have a question — ask the Finn AI consultant.'
   },
+
+  // ── Asosiy ekran (dashboard_screen) ──
+  'dash.subtitle': {'uz': 'Umumiy holat bir ko\'rishda', 'uzc': 'Умумий ҳолат бир кўришда', 'ru': 'Общая картина с одного взгляда', 'en': 'Overview at a glance'},
+  'dash.penyaLive': {'uz': 'Penya hozir hisoblanmoqda', 'uzc': 'Пеня ҳозир ҳисобланмоқда', 'ru': 'Пеня начисляется сейчас', 'en': 'Penalty is accruing now'},
+  'dash.somPerDay': {'uz': 'so\'m/kun', 'uzc': 'сўм/кун', 'ru': 'сум/день', 'en': 'so\'m/day'},
+  'dash.deadlines': {'uz': 'Yaqin muddatlar', 'uzc': 'Яқин муддатлар', 'ru': 'Ближайшие сроки', 'en': 'Upcoming deadlines'},
+  'dash.cashflow': {'uz': 'Pul oqimi', 'uzc': 'Пул оқими', 'ru': 'Денежный поток', 'en': 'Cash flow'},
+  'dash.netProfitMonth': {'uz': 'SOF FOYDA · AVGUST', 'uzc': 'СОФ ФОЙДА · АВГУСТ', 'ru': 'ЧИСТАЯ ПРИБЫЛЬ · АВГУСТ', 'en': 'NET PROFIT · AUGUST'},
+  'dash.income': {'uz': 'Kirim', 'uzc': 'Кирим', 'ru': 'Приход', 'en': 'Income'},
+  'dash.expense': {'uz': 'Chiqim', 'uzc': 'Чиқим', 'ru': 'Расход', 'en': 'Expense'},
+  'dash.status': {'uz': 'Holat', 'uzc': 'Ҳолат', 'ru': 'Состояние', 'en': 'Status'},
+  'dash.score': {'uz': 'ball', 'uzc': 'балл', 'ru': 'балл', 'en': 'pts'},
+  'dash.riskLevel': {'uz': 'RISK DARAJASI', 'uzc': 'РИСК ДАРАЖАСИ', 'ru': 'УРОВЕНЬ РИСКА', 'en': 'RISK LEVEL'},
+  'dash.riskHigh': {'uz': 'Yuqori', 'uzc': 'Юқори', 'ru': 'Высокий', 'en': 'High'},
+  'dash.riskMid': {'uz': 'O\'rta', 'uzc': 'Ўрта', 'ru': 'Средний', 'en': 'Medium'},
+  'dash.riskLow': {'uz': 'Past', 'uzc': 'Паст', 'ru': 'Низкий', 'en': 'Low'},
+  'dash.todayRecommendation': {'uz': 'BUGUNGI TAVSIYA', 'uzc': 'БУГУНГИ ТАВСИЯ', 'ru': 'РЕКОМЕНДАЦИЯ ДНЯ', 'en': 'TODAY\'S ADVICE'},
+  'dash.quickAccess': {'uz': 'Tez kirish', 'uzc': 'Тез кириш', 'ru': 'Быстрый доступ', 'en': 'Quick access'},
+  'dash.didox': {'uz': 'Didox', 'uzc': 'Didox', 'ru': 'Didox', 'en': 'Didox'},
 };

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
-import '../services/api.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
 import '../widgets/common.dart';
+import '../services/api.dart';
+import '../services/i18n.dart';
 
 /// Kontragentlarni tekshirish moduli — STIR bo'yicha risk tekshiruvlari ro'yxati.
+/// PUSH ekran — FINN dizayn tizimi (FinnScreen + tokens + FinnText).
 class CounterpartyScreen extends StatefulWidget {
   const CounterpartyScreen({super.key});
   @override
@@ -11,10 +14,35 @@ class CounterpartyScreen extends StatefulWidget {
 }
 
 class _CounterpartyScreenState extends State<CounterpartyScreen> {
-  late Future<Map<String, dynamic>> _f = Api.counterparty();
+  late Future<Map<String, dynamic>> _f;
   final _search = TextEditingController();
   int _chip = 0; // 0 Hammasi · 1 Riskli · 2 Yetkazuvchi · 3 Xaridor
   String _q = '';
+  String _sub = ''; // sarlavha ostidagi hisob — yuklangach to'ladi
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  // Ma'lumotni yuklaydi va "N ta · M tasi risk ro'yxatida" hisobini yangilaydi.
+  void _load() {
+    final f = Api.counterparty();
+    _f = f;
+    f.then((d) {
+      if (!mounted || d['ok'] != true) return;
+      final all = ((d['checks'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
+      final risky = all.where((c) {
+        final cls = _riskClass((c['risk'] ?? '').toString());
+        return cls == 0 || cls == 1;
+      }).length;
+      setState(() => _sub = '${all.length} ${tr('cp.count')} · $risky ${tr('cp.inRiskList')}');
+    });
+  }
 
   @override
   void dispose() {
@@ -22,7 +50,7 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
     super.dispose();
   }
 
-  Future<void> _refresh() async => setState(() => _f = Api.counterparty());
+  Future<void> _refresh() async => setState(_load);
 
   // ── Risk klassifikatsiyasi ──
   // 0 = yuqori (red), 1 = e'tibor (amber), 2 = toza (green), 3 = noma'lum
@@ -34,25 +62,25 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
     return 3;
   }
 
-  Color _riskColor(BuildContext ctx, int cls) => switch (cls) {
-        0 => C.red,
-        1 => C.amber,
-        2 => C.green,
-        _ => C.muted(ctx, .5),
+  Color _riskOn(FinnTokens t, int cls) => switch (cls) {
+        0 => t.onRed,
+        1 => t.onAmb,
+        2 => t.onGrn,
+        _ => t.ink2,
       };
 
-  Color _riskOn(BuildContext ctx, int cls) => switch (cls) {
-        0 => C.onRed(ctx),
-        1 => C.onAmb(ctx),
-        2 => C.onGrn(ctx),
-        _ => C.muted(ctx, .7),
+  Color _riskTint(FinnTokens t, int cls) => switch (cls) {
+        0 => t.tRed,
+        1 => t.tAmb,
+        2 => t.tGrn,
+        _ => t.key,
       };
 
   String _riskLabel(int cls, String raw) => switch (cls) {
-        0 => 'Yuqori risk',
-        1 => 'E\'tibor',
-        2 => 'Toza',
-        _ => raw.isEmpty ? 'Noma\'lum' : raw,
+        0 => tr('cp.risk.high'),
+        1 => tr('cp.risk.attention'),
+        2 => tr('cp.risk.clean'),
+        _ => raw.isEmpty ? tr('cp.risk.unknown') : raw,
       };
 
   String _initials(String name) {
@@ -63,127 +91,147 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: C.bg(context),
-        body: SafeArea(
-          bottom: false,
-          child: Loader(
-            future: _f,
-            onRefresh: _refresh,
-            builder: (d) {
-              final all = ((d['checks'] as List?) ?? const [])
-                  .whereType<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
-              final riskyCount = all.where((c) {
-                final cls = _riskClass((c['risk'] ?? '').toString());
-                return cls == 0 || cls == 1;
-              }).length;
-
-              // Qidiruv + chip filtri
-              var list = all;
-              if (_q.isNotEmpty) {
-                final q = _q.toLowerCase();
-                list = list.where((c) {
-                  final n = (c['name'] ?? '').toString().toLowerCase();
-                  final s = (c['stir'] ?? '').toString().toLowerCase();
-                  return n.contains(q) || s.contains(q);
-                }).toList();
-              }
-              if (_chip == 1) {
-                list = list.where((c) {
-                  final cls = _riskClass((c['risk'] ?? '').toString());
-                  return cls == 0 || cls == 1;
-                }).toList();
-              } else if (_chip == 2 || _chip == 3) {
-                // Yetkazuvchi / Xaridor — ma'lumotda tur belgisi yo'q
-                list = const [];
-              }
-
-              // Guruhlash: diqqat talab qiladi (0,1) va ishonchli (2,3)
-              final attention = list.where((c) => _riskClass((c['risk'] ?? '').toString()) <= 1).toList();
-              final trusted = list.where((c) => _riskClass((c['risk'] ?? '').toString()) >= 2).toList();
-
-              return CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                    sliver: SliverList.list(children: [
-                      _header(context, all.length, riskyCount),
-                      const SizedBox(height: 16),
-                      _searchField(context),
-                      const SizedBox(height: 14),
-                      _chips(context, all.length, riskyCount),
-                      const SizedBox(height: 8),
-                      if (list.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 40),
-                          child: EmptyState(
-                            icon: Icons.fact_check_rounded,
-                            color: C.cyan,
-                            text: _q.isNotEmpty || _chip > 1
-                                ? 'Mos kontragent topilmadi'
-                                : 'Hozircha tekshiruv yo\'q',
-                          ),
-                        )
-                      else ...[
-                        if (attention.isNotEmpty) ...[
-                          _eyebrow(context, 'Diqqat talab qiladi'),
-                          ...attention.asMap().entries.map(
-                                (e) => StaggerIn(index: e.key, child: _row(context, e.value)),
-                              ),
-                        ],
-                        if (trusted.isNotEmpty) ...[
-                          _eyebrow(context, 'Ishonchli'),
-                          ...trusted.asMap().entries.map(
-                                (e) => StaggerIn(index: attention.length + e.key, child: _row(context, e.value)),
-                              ),
-                        ],
-                      ],
-                    ]),
-                  ),
-                ],
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return FinnScreen(
+      title: tr('cp.title'),
+      subtitle: _sub.isEmpty ? tr('cp.subtitle') : _sub,
+      showNav: false,
+      leading: _iconBtn(t, Icons.arrow_back_rounded,
+          onTap: () => Navigator.maybePop(context)),
+      actions: [
+        _iconBtn(t, Icons.refresh_rounded, onTap: _refresh),
+      ],
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _f,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
               );
-            },
-          ),
+            }
+            final d = snap.data ?? {};
+            if (d['ok'] != true) return _err(t);
+            return _content(t, d);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _content(FinnTokens t, Map<String, dynamic> d) {
+    final all = ((d['checks'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+    final riskyCount = all.where((c) {
+      final cls = _riskClass((c['risk'] ?? '').toString());
+      return cls == 0 || cls == 1;
+    }).length;
+
+    // Qidiruv + chip filtri
+    var list = all;
+    if (_q.isNotEmpty) {
+      final q = _q.toLowerCase();
+      list = list.where((c) {
+        final n = (c['name'] ?? '').toString().toLowerCase();
+        final s = (c['stir'] ?? '').toString().toLowerCase();
+        return n.contains(q) || s.contains(q);
+      }).toList();
+    }
+    if (_chip == 1) {
+      list = list.where((c) {
+        final cls = _riskClass((c['risk'] ?? '').toString());
+        return cls == 0 || cls == 1;
+      }).toList();
+    } else if (_chip == 2 || _chip == 3) {
+      // Yetkazuvchi / Xaridor — ma'lumotda tur belgisi yo'q
+      list = const [];
+    }
+
+    // Guruhlash: diqqat talab qiladi (0,1) va ishonchli (2,3)
+    final attention = list.where((c) => _riskClass((c['risk'] ?? '').toString()) <= 1).toList();
+    final trusted = list.where((c) => _riskClass((c['risk'] ?? '').toString()) >= 2).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        _searchField(t),
+        const SizedBox(height: 14),
+        _chips(t, all.length, riskyCount),
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: EmptyState(
+              icon: Icons.fact_check_rounded,
+              color: t.cyan,
+              text: _q.isNotEmpty || _chip > 1
+                  ? tr('cp.empty.notFound')
+                  : tr('cp.empty.none'),
+            ),
+          )
+        else ...[
+          if (attention.isNotEmpty) ...[
+            _eyebrow(t, tr('cp.group.attention')),
+            for (var i = 0; i < attention.length; i++)
+              StaggerIn(index: i, child: _row(t, attention[i])),
+          ],
+          if (trusted.isNotEmpty) ...[
+            _eyebrow(t, tr('cp.group.trusted')),
+            for (var i = 0; i < trusted.length; i++)
+              StaggerIn(index: attention.length + i, child: _row(t, trusted[i])),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('cp.err.offline'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _refresh, child: Text(tr('cp.err.retry'))),
+          ]),
         ),
       );
 
-  Widget _header(BuildContext ctx, int total, int risky) => Row(children: [
-        Container(
-          width: 42,
-          height: 42,
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [C.blue, C.cyan]),
-            borderRadius: BorderRadius.circular(13),
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: t.line),
           ),
-          child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 21),
+          child: Icon(ic, size: 17, color: t.ink2),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Kontragentlar',
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4, color: C.text(ctx))),
-            Text('$total ta · $risky tasi risk ro\'yxatida',
-                style: TextStyle(fontSize: 12, color: C.muted(ctx, .5))),
-          ]),
-        ),
-      ]);
+      );
 
-  Widget _searchField(BuildContext ctx) => TextField(
+  Widget _searchField(FinnTokens t) => TextField(
         controller: _search,
         onChanged: (v) => setState(() => _q = v.trim()),
-        style: TextStyle(fontSize: 14, color: C.text(ctx), fontWeight: FontWeight.w600),
-        cursorColor: C.brand,
+        style: FinnText.rowTitle(t.ink),
+        cursorColor: t.blue,
         decoration: InputDecoration(
           isDense: true,
-          hintText: 'STIR yoki nom bo\'yicha qidirish',
-          hintStyle: TextStyle(fontSize: 13.5, color: C.muted(ctx, .4), fontWeight: FontWeight.w500),
-          prefixIcon: Icon(Icons.search_rounded, size: 20, color: C.muted(ctx, .45)),
+          hintText: tr('cp.search.hint'),
+          hintStyle: FinnText.rowTitle(t.ink3),
+          prefixIcon: Icon(Icons.search_rounded, size: 20, color: t.ink3),
           suffixIcon: _q.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.close_rounded, size: 18, color: C.muted(ctx, .5)),
+                  icon: Icon(Icons.close_rounded, size: 18, color: t.ink3),
                   onPressed: () => setState(() {
                     _search.clear();
                     _q = '';
@@ -191,30 +239,36 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
                 )
               : null,
           filled: true,
-          fillColor: C.fill(ctx),
+          fillColor: t.card,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: C.border(ctx)),
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            borderSide: BorderSide(color: t.line),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: C.border(ctx)),
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            borderSide: BorderSide(color: t.line),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: C.brand.withValues(alpha: .5), width: 1.4),
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            borderSide: BorderSide(color: t.blue.withValues(alpha: .5), width: 1.4),
           ),
         ),
       );
 
-  Widget _chips(BuildContext ctx, int total, int risky) {
-    final items = ['Hammasi $total', 'Riskli $risky', 'Yetkazuvchi', 'Xaridor'];
+  Widget _chips(FinnTokens t, int total, int risky) {
+    final items = [
+      '${tr('cp.chip.all')} $total',
+      '${tr('cp.chip.risky')} $risky',
+      tr('cp.chip.supplier'),
+      tr('cp.chip.buyer'),
+    ];
     return SizedBox(
       height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.zero,
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
@@ -222,23 +276,18 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
           return GestureDetector(
             onTap: () => setState(() => _chip = i),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
+              duration: const Duration(milliseconds: 240),
               curve: Curves.easeOut,
               padding: const EdgeInsets.symmetric(horizontal: 15),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: on ? C.brand : C.card(ctx),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: on ? Colors.transparent : C.border(ctx)),
-                boxShadow: on ? null : C.shadow(ctx, y: 4, blur: 14),
+                color: on ? t.blue : t.card,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: on ? t.blue : t.line),
               ),
               child: Text(
                 items[i],
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: on ? Colors.white : C.muted(ctx, .7),
-                ),
+                style: FinnText.chip(on ? Colors.white : t.ink2),
               ),
             ),
           );
@@ -247,90 +296,80 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
     );
   }
 
-  Widget _eyebrow(BuildContext ctx, String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
+  Widget _eyebrow(FinnTokens t, String label) => Padding(
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
         child: Row(children: [
-          Text(text.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: C.muted(ctx, .45),
-              )),
-          const SizedBox(width: 10),
-          Expanded(child: Container(height: 1, color: C.border(ctx))),
+          Text(label.toUpperCase(), style: FinnText.eyebrow(t.ink3)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: t.line)),
         ]),
       );
 
-  Widget _row(BuildContext ctx, Map<String, dynamic> c) {
+  Widget _row(FinnTokens t, Map<String, dynamic> c) {
     final name = (c['name'] ?? '—').toString();
     final stir = (c['stir'] ?? '').toString();
     final date = (c['date'] ?? '').toString();
     final cls = _riskClass((c['risk'] ?? '').toString());
-    final col = _riskColor(ctx, cls);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
-        color: C.card(ctx),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: C.border(ctx)),
-        boxShadow: C.shadow(ctx),
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rLg),
+        border: Border.all(color: t.line),
+        boxShadow: t.sh,
       ),
       child: Row(children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 38,
+          height: 38,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: C.tint(ctx, col),
-            borderRadius: BorderRadius.circular(13),
+            color: _riskTint(t, cls),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             _initials(name),
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _riskOn(ctx, cls)),
+            style: FinnText.rowValue(_riskOn(t, cls)),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 13),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: C.text(ctx)),
+              style: FinnText.rowTitle(t.ink),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               [
-                if (stir.isNotEmpty) 'STIR $stir',
+                if (stir.isNotEmpty) '${tr('cp.stir')} $stir',
                 if (date.isNotEmpty) date,
               ].join('  ·  '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11.5, color: C.muted(ctx, .5)),
+              style: FinnText.rowSub(t.ink3),
             ),
           ]),
         ),
-        const SizedBox(width: 8),
-        _pill(ctx, cls, (c['risk'] ?? '').toString()),
+        const SizedBox(width: 12),
+        _pill(t, cls, (c['risk'] ?? '').toString()),
       ]),
     );
   }
 
-  Widget _pill(BuildContext ctx, int cls, String raw) {
-    final col = _riskColor(ctx, cls);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: C.tint(ctx, col),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        _riskLabel(cls, raw),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _riskOn(ctx, cls)),
-      ),
-    );
-  }
+  Widget _pill(FinnTokens t, int cls, String raw) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: _riskTint(t, cls),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          _riskLabel(cls, raw),
+          style: FinnText.pill(_riskOn(t, cls)),
+        ),
+      );
 }

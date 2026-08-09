@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'push_service.dart';
 
 /// FINN AI backend API klienti (Laravel Sanctum Bearer token).
 /// Token Keychain (iOS) / Keystore (Android) da shifrlangan holda saqlanadi — TZ talabi.
@@ -24,6 +26,32 @@ class Api {
   static Future<void> clearToken() async {
     _token = null;
     await _storage.delete(key: 'token');
+  }
+
+  /// Profil rasmini yuklash (multipart). bytes + fayl nomi (png/jpg/heic).
+  /// Format tekshiruvi backendda ham bor — qolgan formatlar rad etiladi.
+  static Future<Map<String, dynamic>> uploadAvatar(
+      List<int> bytes, String filename) async {
+    try {
+      final req = http.MultipartRequest('POST', Uri.parse('$base/profile/avatar'));
+      req.headers['Accept'] = 'application/json';
+      final t = await token;
+      if (t != null) req.headers['Authorization'] = 'Bearer $t';
+      // Aniq Content-Type — web'da server mime'ni to'g'ri aniqlashi uchun.
+      final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : 'jpg';
+      const mimes = {
+        'png': ['image', 'png'], 'jpg': ['image', 'jpeg'], 'jpeg': ['image', 'jpeg'],
+        'heic': ['image', 'heic'], 'heif': ['image', 'heif'],
+      };
+      final mt = mimes[ext] ?? ['image', 'jpeg'];
+      req.files.add(http.MultipartFile.fromBytes('image', bytes,
+          filename: filename, contentType: MediaType(mt[0], mt[1])));
+      final streamed = await req.send().timeout(const Duration(seconds: 45));
+      final resp = await http.Response.fromStream(streamed);
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } catch (_) {
+      return {'ok': false, 'message': 'Rasm yuklashda xato'};
+    }
   }
 
   /// Qurilma identifikatori va nomi — yangi qurilmadan kirishda SMS ogohlantirish uchun.
@@ -104,12 +132,26 @@ class Api {
   }
 
   static Future<void> logout() async {
+    try { await PushService.unregister(); } catch (_) {}
     await _req('POST', '/auth/logout');
     await clearToken();
   }
 
   // ── Ma'lumotlar ──
   static Future<Map<String, dynamic>> me() => _req('GET', '/me');
+  static Future<Map<String, dynamic>> devices() async {
+    // O'z qurilma ma'lumotini yuboramiz — joriy qurilma BATAFSIL model bilan ko'rinadi.
+    final di = await deviceInfo();
+    final did = Uri.encodeComponent(di['device_id'] ?? '');
+    final dn = Uri.encodeComponent(di['device_name'] ?? '');
+    return _req('GET', '/devices?did=$did&dn=$dn');
+  }
+  static Future<Map<String, dynamic>> revokeDevice(int id) =>
+      _req('POST', '/devices/$id/revoke');
+
+  /// Ism/familiya + email tahrirlash. Telefon va JSHSHIR OneID orqali — o'zgartirilmaydi.
+  static Future<Map<String, dynamic>> updateProfile({required String name, String? email}) =>
+      _req('POST', '/profile', body: {'name': name, if (email != null) 'email': email});
   static Future<Map<String, dynamic>> plan() => _req('GET', '/plan');
   static Future<Map<String, dynamic>> plans() => _req('GET', '/plans');
   // ── Veb parity modullari ──
@@ -133,7 +175,30 @@ class Api {
   });
   // WebView'da veb-sessiyani ochish uchun bir martalik chipta
   static Future<Map<String, dynamic>> webTicket() => _req('POST', '/web-ticket');
+
+  // ── Push (TZ 4.2.2) ──
+  static Future<Map<String, dynamic>> registerPush(String fcmToken, String platform) async {
+    final di = await deviceInfo();
+    return _req('POST', '/push/register',
+        body: {'token': fcmToken, 'platform': platform, 'device_id': di['device_id'] ?? ''});
+  }
+
+  static Future<Map<String, dynamic>> unregisterPush(String fcmToken) =>
+      _req('POST', '/push/unregister', body: {'token': fcmToken});
   static Future<Map<String, dynamic>> dashboard() => _req('GET', '/dashboard');
+
+  // ── Qo'shish (yaratish) ──
+  static Future<Map<String, dynamic>> addFinancial({
+    required String type, required num amount, String? category, String? description,
+  }) => _req('POST', '/financial', body: {
+    'type': type, 'amount': amount,
+    if (category != null) 'category': category,
+    if (description != null && description.isNotEmpty) 'description': description,
+  });
+  static Future<Map<String, dynamic>> addEmployee({required String fullName, String? position}) =>
+      _req('POST', '/employees', body: {'full_name': fullName, if (position != null) 'position': position});
+  static Future<Map<String, dynamic>> addOrganization({required String name, String? stir}) =>
+      _req('POST', '/organizations', body: {'name': name, if (stir != null && stir.isNotEmpty) 'stir': stir});
   static Future<Map<String, dynamic>> organizations() => _req('GET', '/organizations');
   static Future<Map<String, dynamic>> tax() => _req('GET', '/tax');
   static Future<Map<String, dynamic>> risk({int? org}) =>

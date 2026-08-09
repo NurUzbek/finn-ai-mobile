@@ -7,6 +7,8 @@ const Map<String, Map<String, String>> tr = {
   // Subtitle: "$n ta firma · $m tasi toza" — sonlar Dart'da, so'zlar shu yerda.
   'org.firmsWord': {'uz': 'ta firma', 'uzc': 'та фирма', 'ru': 'фирм', 'en': 'firms'},
   'org.cleanWord': {'uz': 'tasi toza', 'uzc': 'таси тоза', 'ru': 'чистых', 'en': 'clean'},
+  // Subtitle fallback (API javobi yo'q holatida).
+  'org.subtitleFallback': {'uz': 'Barcha firmalaringiz bir joyda', 'uzc': 'Барча фирмаларингиз бир жойда', 'ru': 'Все ваши фирмы в одном месте', 'en': 'All your firms in one place'},
 
   // ── Filter chiplari ──
   'org.debtor': {'uz': 'Qarzdor', 'uzc': 'Қарздор', 'ru': 'Должник', 'en': 'Debtor'},
@@ -27,6 +29,9 @@ const Map<String, Map<String, String>> tr = {
   'org.bank': {'uz': 'Bank', 'uzc': 'Банк', 'ru': 'Банк', 'en': 'Bank'},
   'org.address': {'uz': 'Manzil', 'uzc': 'Манзил', 'ru': 'Адрес', 'en': 'Address'},
   'org.noData': {'uz': 'Ma\'lumot yo\'q', 'uzc': 'Маълумот йўқ', 'ru': 'Нет данных', 'en': 'No data'},
+
+  // ── Xato holati ──
+  'org.noConnection': {'uz': 'Aloqa yo\'q', 'uzc': 'Алоқа йўқ', 'ru': 'Нет связи', 'en': 'No connection'},
 
   // ── Snackbar ──
   'org.comingSoon': {'uz': 'Tez orada', 'uzc': 'Тез орада', 'ru': 'Скоро', 'en': 'Coming soon'},

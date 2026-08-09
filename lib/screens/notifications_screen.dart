@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../theme/finn_tokens.dart';
+import '../widgets/finn_screen.dart';
+import '../widgets/common.dart';
 import '../services/api.dart';
 import '../services/i18n.dart';
-import '../widgets/common.dart';
 
 /// "Xabarlar" moduli — muhim bildirishnomalar, eslatmalar va risk signallari.
-/// Dizayn: finn-app-screens.html #v-xabar.
+/// FINN dizayn tizimi bo'yicha (FinnScreen + tokens + FinnText).
+/// Nav shell'dan keladi: navIndex + onNavChanged.
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({super.key, this.navIndex = 4, this.onNavChanged});
+  final int navIndex;
+  final ValueChanged<int>? onNavChanged;
+
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -43,150 +48,164 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _ => all,
       };
 
-  /// Turi/muhimligiga qarab rang, ikonka va oldingi (foreground) rang.
-  (Color, IconData, Color) _style(BuildContext c, Map<String, dynamic> n) {
-    final t = (n['type'] ?? '').toString().toLowerCase();
+  /// Turi/muhimligiga qarab ikonka, oldingi (foreground) rang va tint fon.
+  (IconData, Color, Color) _style(FinnTokens t, Map<String, dynamic> n) {
+    final ty = (n['type'] ?? '').toString().toLowerCase();
     final p = (n['priority'] ?? '').toString().toLowerCase();
-    if (t.contains('security')) {
-      return (C.violet, Icons.lock_outline_rounded, C.onPur(c));
+    if (ty.contains('security')) {
+      return (Icons.lock_outline_rounded, t.onPur, t.tPur);
     }
-    if (t.contains('ai')) {
-      return (C.brand, Icons.auto_awesome_rounded, C.brand);
+    if (ty.contains('ai')) {
+      return (Icons.auto_awesome_rounded, t.blue, t.tBlu);
     }
-    if (t.contains('paid') || t.contains('success')) {
-      return (C.green, Icons.check_rounded, C.onGrn(c));
+    if (ty.contains('paid') || ty.contains('success')) {
+      return (Icons.check_rounded, t.onGrn, t.tGrn);
     }
-    if (t.contains('report') || t.contains('deadline')) {
-      return (C.amber, Icons.warning_amber_rounded, C.onAmb(c));
+    if (ty.contains('report') || ty.contains('deadline')) {
+      return (Icons.warning_amber_rounded, t.onAmb, t.tAmb);
     }
     if (p == 'high' || _isPay(n)) {
-      return (C.red, Icons.account_balance_rounded, C.onRed(c));
+      return (Icons.account_balance_rounded, t.onRed, t.tRed);
     }
-    return (C.brand, Icons.notifications_rounded, C.brand);
+    return (Icons.notifications_rounded, t.blue, t.tBlu);
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: _f,
-          builder: (ctx, snap) {
-            final loading = snap.connectionState == ConnectionState.waiting;
-            final d = snap.data ?? const {'ok': false};
-            final ok = d['ok'] == true;
-            final all = ok
-                ? ((d['notifications'] as List?)?.cast<Map<String, dynamic>>() ??
-                    const <Map<String, dynamic>>[])
-                : const <Map<String, dynamic>>[];
-            final unread = all.where((n) => n['read'] != true).length;
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _f,
+      builder: (ctx, snap) {
+        final loading = snap.connectionState == ConnectionState.waiting;
+        final d = snap.data ?? const {'ok': false};
+        final ok = d['ok'] == true;
+        final all = ok
+            ? ((d['notifications'] as List?)?.cast<Map<String, dynamic>>() ??
+                const <Map<String, dynamic>>[])
+            : const <Map<String, dynamic>>[];
+        final unread = all.where((n) => n['read'] != true).length;
 
-            return Column(children: [
-              _header(ctx, unread, loading),
-              Expanded(
-                child: loading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: C.brand))
-                    : !ok
-                        ? EmptyState(
-                            icon: Icons.cloud_off_rounded,
-                            color: C.red,
-                            text: (d['message'] ?? tr('notif.noData'))
-                                .toString())
-                        : RefreshIndicator(
-                            color: C.brand,
-                            backgroundColor: C.card(ctx),
-                            onRefresh: _refresh,
-                            child: _body(ctx, all),
-                          ),
-              ),
-            ]);
-          },
-        ),
-      );
-
-  // ── Sarlavha ──
-  Widget _header(BuildContext c, int unread, bool loading) {
-    final can = unread > 0 && !loading;
-    return ScreenHeader(
-      title: tr('notif.title'),
-      icon: Icons.notifications_rounded,
-      subtitle: loading ? tr('state.loading') : '$unread ${tr('notif.unread')}',
-      action: TextButton(
-        onPressed: can ? _readAll : null,
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          minimumSize: const Size(0, 0),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(
-          tr('notif.markAllRead'),
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: can ? C.brand : C.muted(c, .3),
-          ),
-        ),
-      ),
+        return FinnScreen(
+          title: tr('notif.title'),
+          subtitle:
+              loading ? tr('state.loading') : '$unread ${tr('notif.unread')}',
+          showNav: false,
+          reserveNav: true,
+          actions: [
+            _iconBtn(t, Icons.refresh_rounded, onTap: _refresh),
+            const SizedBox(width: 8),
+            _readAllBtn(t, enabled: unread > 0 && !loading),
+          ],
+          children: [
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (!ok)
+              _empty(
+                t,
+                Icons.cloud_off_rounded,
+                (d['message'] ?? tr('notif.noData')).toString(),
+                t.red,
+                onRetry: _refresh,
+              )
+            else
+              _content(t, all),
+          ],
+        );
+      },
     );
   }
 
-  // ── Tana: chiplar + kartalar ──
-  Widget _body(BuildContext c, List<Map<String, dynamic>> all) {
+  Widget _content(FinnTokens t, List<Map<String, dynamic>> all) {
     final list = _apply(all);
     final muhim = all.where(_isHigh).length;
 
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        // ── Filtr chiplari ──
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(children: [
-            _chip(c, label: tr('common.all'), idx: 0),
+            _chip(t, label: tr('common.all'), idx: 0),
             const SizedBox(width: 8),
-            _chip(c,
+            _chip(t,
                 label: muhim > 0
                     ? '${tr('notif.important')} $muhim'
                     : tr('notif.important'),
                 idx: 1,
-                dot: C.red),
+                dot: t.red),
             const SizedBox(width: 8),
-            _chip(c, label: tr('notif.payment'), idx: 2),
+            _chip(t, label: tr('notif.payment'), idx: 2),
             const SizedBox(width: 8),
-            _chip(c, label: tr('nav.risk'), idx: 3),
+            _chip(t, label: tr('nav.risk'), idx: 3),
           ]),
         ),
         const SizedBox(height: 16),
         if (list.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 60),
-            child: EmptyState(
-              icon: Icons.notifications_off_rounded,
-              text: tr('notif.empty'),
-              color: C.brand,
-            ),
-          )
+          _empty(t, Icons.notifications_off_rounded, tr('notif.empty'), t.blue)
         else
-          ...List.generate(
-            list.length,
-            (i) => StaggerIn(index: i, child: _card(c, list[i])),
-          ),
-      ]),
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0) const SizedBox(height: FinnTokens.gapList),
+            StaggerIn(index: i, child: _card(t, list[i])),
+          ],
+      ],
     );
   }
 
-  Widget _chip(BuildContext c,
+  // ── Sarlavha ikonka tugmasi ──
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(FinnTokens.rMd),
+            border: Border.all(color: t.line),
+            boxShadow: t.sh,
+          ),
+          child: Icon(ic, size: 19, color: onTap == null ? t.ink4 : t.ink2),
+        ),
+      );
+
+  // ── "Hammasi o'qildi" matnli tugmasi (HTML: #readAll) ──
+  Widget _readAllBtn(FinnTokens t, {required bool enabled}) => GestureDetector(
+        onTap: enabled ? _readAll : null,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          child: Text(
+            tr('notif.markAllRead'),
+            style: FinnText.chip(enabled ? t.blue : t.ink4),
+          ),
+        ),
+      );
+
+  // ── Filtr chipi ──
+  Widget _chip(FinnTokens t,
       {required String label, required int idx, Color? dot}) {
     final on = _filter == idx;
     return GestureDetector(
       onTap: () => setState(() => _filter = idx),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        curve: FinnTokens.ease,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
         decoration: BoxDecoration(
-          color: on ? C.brand : C.fill(c),
-          borderRadius: BorderRadius.circular(12),
+          color: on ? t.blue : t.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: on ? t.blue : t.line),
+          boxShadow: on ? null : t.sh,
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (dot != null)
@@ -197,89 +216,112 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               decoration: BoxDecoration(
                   color: on ? Colors.white : dot, shape: BoxShape.circle),
             ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: on ? Colors.white : C.muted(c, .6),
-            ),
-          ),
+          Text(label, style: FinnText.chip(on ? Colors.white : t.ink2)),
         ]),
       ),
     );
   }
 
-  Widget _card(BuildContext c, Map<String, dynamic> n) {
+  // ── Bildirishnoma kartasi (HTML: .nt) ──
+  Widget _card(FinnTokens t, Map<String, dynamic> n) {
     final unread = n['read'] != true;
-    final (color, icon, fg) = _style(c, n);
+    final (icon, fg, tint) = _style(t, n);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: unread ? C.card(c) : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: unread ? C.shadow(c) : null,
+        color: unread ? t.card : Colors.transparent,
+        borderRadius: BorderRadius.circular(FinnTokens.rLg),
+        border: Border.all(color: unread ? t.line2 : Colors.transparent),
+        boxShadow: unread ? t.sh : null,
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: unread
-                ? C.tint(c, color)
-                : C.tint(c, color, light: .05, dark: .09),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(icon,
-              size: 20, color: unread ? fg : fg.withValues(alpha: .55)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Text(
-                  (n['title'] ?? '').toString(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
-                    height: 1.3,
-                    color: unread ? C.text(c) : C.muted(c, .42),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // .nt-ic — o'qilganda butun ikonka 50% shaffof
+              Opacity(
+                opacity: unread ? 1 : .5,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: tint,
+                    borderRadius: BorderRadius.circular(11),
                   ),
+                  child: Icon(icon, size: 17, color: fg),
                 ),
               ),
-              if (unread)
-                Container(
-                  margin: const EdgeInsets.only(left: 8, top: 4),
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      const BoxDecoration(color: C.red, shape: BoxShape.circle),
-                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // h4 — dot bilan to'qnashmasligi uchun o'ng bo'shliq
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Text(
+                          (n['title'] ?? '').toString(),
+                          style: FinnText.rowTitle(unread ? t.ink : t.ink3),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        (n['body'] ?? '').toString(),
+                        style: FinnText.screenSub(unread ? t.ink2 : t.ink3),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        (n['date'] ?? '').toString(),
+                        style: FinnText.rowSub(t.ink3),
+                      ),
+                    ]),
+              ),
             ]),
-            const SizedBox(height: 5),
-            Text(
-              (n['body'] ?? '').toString(),
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.45,
-                color: unread ? C.muted(c, .6) : C.muted(c, .35),
+          ),
+          // .dot — o'qilmagan belgisi (top:17 right:15)
+          if (unread)
+            Positioned(
+              top: 17,
+              right: 15,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: t.red, shape: BoxShape.circle),
               ),
             ),
-            const SizedBox(height: 7),
-            Text(
-              (n['date'] ?? '').toString(),
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
-                color: C.muted(c, .3),
-              ),
+        ],
+      ),
+    );
+  }
+
+  // ── Bo'sh / xato holati ──
+  Widget _empty(FinnTokens t, IconData icon, String text, Color color,
+      {Future<void> Function()? onRetry}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 72,
+            height: 72,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: .1), shape: BoxShape.circle),
+            child: Icon(icon, size: 32, color: color),
+          ),
+          const SizedBox(height: 16),
+          Text(text, textAlign: TextAlign.center, style: FinnText.body(t.ink3)),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => onRetry(),
+              child: Text(tr('common.retry')),
             ),
-          ]),
-        ),
-      ]),
+          ],
+        ]),
+      ),
     );
   }
 }

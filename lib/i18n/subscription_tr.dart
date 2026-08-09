@@ -3,15 +3,55 @@
 const Map<String, Map<String, String>> tr = {
   // ── Sarlavha / umumiy ──
   'sub.title': {'uz': 'Tariflar', 'uzc': 'Тарифлар', 'ru': 'Тарифы', 'en': 'Plans'},
+  'sub.pickTitle': {'uz': 'Tarifni tanlang', 'uzc': 'Тарифни танланг', 'ru': 'Выберите тариф', 'en': 'Choose a plan'},
+  'sub.pickSub': {'uz': 'Istalgan vaqtda o\'zgartirasiz', 'uzc': 'Исталган вақтда ўзгартирасиз', 'ru': 'Меняйте в любое время', 'en': 'Change anytime'},
   'sub.currentPlan': {'uz': 'Joriy tarif', 'uzc': 'Жорий тариф', 'ru': 'Текущий тариф', 'en': 'Current plan'},
   'sub.current': {'uz': 'Joriy', 'uzc': 'Жорий', 'ru': 'Текущий', 'en': 'Current'},
   'sub.currentMode': {'uz': 'Joriy rejim', 'uzc': 'Жорий режим', 'ru': 'Текущий режим', 'en': 'Current plan'},
+  'sub.mode': {'uz': 'rejim', 'uzc': 'режим', 'ru': 'тариф', 'en': 'plan'},
   'sub.days': {'uz': 'kun', 'uzc': 'кун', 'ru': 'дн', 'en': 'days'},
+
+  // ── Limit banneri (joriy tarif) ──
+  'sub.orgsBand': {
+    'uz': '{n} tadan {u} ta tashkilot band',
+    'uzc': '{n} тадан {u} та ташкилот банд',
+    'ru': 'занято {u} из {n} организаций',
+    'en': '{u} of {n} organizations used',
+  },
+  'sub.limNote': {
+    'uz': 'Limitga yetdingiz. Yangi firma qo\'shish uchun tarifni kengaytiring.',
+    'uzc': 'Лимитга етдингиз. Янги фирма қўшиш учун тарифни кенгайтиринг.',
+    'ru': 'Достигнут лимит. Расширьте тариф, чтобы добавить организацию.',
+    'en': 'You\'ve reached the limit. Upgrade your plan to add a company.',
+  },
 
   // ── Sikl (oylik/yillik) ──
   'sub.monthly': {'uz': 'Oylik', 'uzc': 'Ойлик', 'ru': 'Ежемесячно', 'en': 'Monthly'},
   'sub.yearly': {'uz': 'Yillik', 'uzc': 'Йиллик', 'ru': 'Ежегодно', 'en': 'Yearly'},
+  'sub.saveHint': {
+    'uz': 'Yillik to\'lovda 2.4 oy bepul',
+    'uzc': 'Йиллик тўловда 2.4 ой бепул',
+    'ru': 'При годовой оплате 2.4 месяца бесплатно',
+    'en': '2.4 months free with yearly billing',
+  },
   'sub.somPerMonth': {'uz': 'so\'m/oy', 'uzc': 'сўм/ой', 'ru': 'сум/мес', 'en': 'so\'m/mo'},
+  'sub.somPerYear': {'uz': 'so\'m/yil', 'uzc': 'сўм/йил', 'ru': 'сум/год', 'en': 'so\'m/yr'},
+  'sub.trialUnit': {'uz': '14 kun sinov', 'uzc': '14 кун синов', 'ru': '14 дней пробный', 'en': '14-day trial'},
+  'sub.custom': {'uz': 'Kelishuv', 'uzc': 'Келишув', 'ru': 'Договорная', 'en': 'Custom'},
+  'sub.individual': {'uz': 'individual', 'uzc': 'индивидуал', 'ru': 'индивидуально', 'en': 'individual'},
+  'sub.contact': {'uz': 'Bog\'lanish', 'uzc': 'Боғланиш', 'ru': 'Связаться', 'en': 'Contact'},
+  'sub.compare': {
+    'uz': 'Barcha imkoniyatlarni solishtirish',
+    'uzc': 'Барча имкониятларни солиштириш',
+    'ru': 'Сравнить все возможности',
+    'en': 'Compare all features',
+  },
+  'sub.trNote': {
+    'uz': 'To\'lov Payme, Click yoki Uzum orqali. Bekor qilganingizda joriy davr oxirigacha ishlaydi.',
+    'uzc': 'Тўлов Payme, Click ёки Uzum орқали. Бекор қилганингизда жорий давр охиригача ишлайди.',
+    'ru': 'Оплата через Payme, Click или Uzum. При отмене действует до конца текущего периода.',
+    'en': 'Payment via Payme, Click or Uzum. If cancelled, it works until the end of the current period.',
+  },
 
   // ── Tugmalar / belgilar ──
   'sub.trial14': {'uz': '14 kun bepul sinash', 'uzc': '14 кун бепул синаш', 'ru': '14 дней бесплатно', 'en': '14-day free trial'},

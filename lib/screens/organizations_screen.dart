@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
 import '../services/api.dart';
+import '../widgets/add_forms.dart';
 import '../services/i18n.dart';
+import '../theme/finn_tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/finn_screen.dart';
 
-/// "Mening tashkilotlarim" moduli — kengayuvchi firma kartalari (TZ 2-jadval).
+/// "Tashkilotlarim" moduli — HTML prototip (`#v-firmalar`) bilan 1:1.
+///
+/// Brend sarlavha belgisi + firma kartalari (monogramma, nom, STIR,
+/// qarz/toza holat, ochiluvchi akkordeon) + filtr chiplari.
+/// Nav shell'dan keladi: navIndex + onNavChanged.
 class OrganizationsScreen extends StatefulWidget {
-  const OrganizationsScreen({super.key});
+  const OrganizationsScreen({super.key, this.navIndex = 1, this.onNavChanged});
+  final int navIndex;
+  final ValueChanged<int>? onNavChanged;
+
   @override
   State<OrganizationsScreen> createState() => _OrganizationsScreenState();
 }
@@ -20,159 +29,208 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
   bool _clean(Map<String, dynamic> o) => o['clean'] == true;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Loader(
-          future: _f,
-          onRefresh: _refresh,
-          builder: (d) {
-            final orgs = (d['organizations'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-            final total = orgs.length;
-            final cleanCount = orgs.where(_clean).length;
-            final debtorCount = total - cleanCount;
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _f,
+      builder: (context, snap) {
+        final loading = snap.connectionState == ConnectionState.waiting;
+        final d = snap.data ?? const {};
+        final ok = d['ok'] == true;
+        final orgs = ok
+            ? ((d['organizations'] as List?)?.cast<Map<String, dynamic>>() ?? [])
+            : <Map<String, dynamic>>[];
+        final total = orgs.length;
+        final cleanCount = orgs.where(_clean).length;
 
-            final filtered = orgs.where((o) {
-              if (_filter == 1) return !_clean(o);
-              if (_filter == 2) return _clean(o);
-              return true;
-            }).toList();
+        // "5 ta firma · 2 tasi toza" — sonlar Dart'da, so'zlar tarjimada.
+        final subtitle = ok
+            ? '$total ${tr('org.firmsWord')} · $cleanCount ${tr('org.cleanWord')}'
+            : tr('org.subtitleFallback');
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
-              children: [
-                _header(context, total, cleanCount),
-                const SizedBox(height: 14),
-                _chips(context, total, debtorCount, cleanCount),
-                const SizedBox(height: 16),
-                if (orgs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: EmptyState(
-                      icon: Icons.apartment_rounded,
-                      text: tr('org.empty'),
-                      color: C.brand,
-                    ),
-                  )
-                else if (filtered.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: EmptyState(
-                      icon: _filter == 2 ? Icons.verified_outlined : Icons.error_outline_rounded,
-                      text: _filter == 2 ? tr('org.noCleanFound') : tr('org.noDebtor'),
-                      color: C.brand,
-                    ),
-                  )
-                else
-                  for (var i = 0; i < filtered.length; i++)
-                    StaggerIn(
-                      index: i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _OrgRow(key: ValueKey(filtered[i]['id'] ?? i), o: filtered[i]),
-                      ),
-                    ),
-              ],
-            );
-          },
+        return FinnScreen(
+          title: tr('org.title'),
+          subtitle: subtitle,
+          showNav: false,
+          reserveNav: true,
+          // Brend belgisi (☰ modullar menyusi TZ bo'yicha OLIB TASHLANGAN).
+          leading: _brandBadge(t),
+          actions: [
+            _iconBtn(t, Icons.add_rounded, onTap: () async {
+              if (await showAddOrganization(context)) _refresh();
+            }),
+          ],
+          children: [
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (!ok)
+              _err(t)
+            else
+              _content(t, orgs.cast<Map<String, dynamic>>()),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _content(FinnTokens t, List<Map<String, dynamic>> orgs) {
+    final total = orgs.length;
+    final cleanCount = orgs.where(_clean).length;
+    final debtorCount = total - cleanCount;
+
+    final filtered = orgs.where((o) {
+      if (_filter == 1) return !_clean(o);
+      if (_filter == 2) return _clean(o);
+      return true;
+    }).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        _chips(t, total, debtorCount, cleanCount),
+        const SizedBox(height: 16),
+        if (orgs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: EmptyState(
+              icon: Icons.apartment_rounded,
+              text: tr('org.empty'),
+              color: t.blue,
+            ),
+          )
+        else if (filtered.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: EmptyState(
+              icon: _filter == 2
+                  ? Icons.verified_outlined
+                  : Icons.error_outline_rounded,
+              text: _filter == 2 ? tr('org.noCleanFound') : tr('org.noDebtor'),
+              color: t.blue,
+            ),
+          )
+        else
+          for (var i = 0; i < filtered.length; i++)
+            StaggerIn(
+              index: i,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _OrgRow(
+                    key: ValueKey(filtered[i]['id'] ?? i), o: filtered[i]),
+              ),
+            ),
+      ],
+    );
+  }
+
+  Widget _err(FinnTokens t) => Padding(
+        padding: const EdgeInsets.only(top: 140),
+        child: Center(
+          child: Column(children: [
+            Icon(Icons.cloud_off_rounded, size: 44, color: t.ink4),
+            const SizedBox(height: 12),
+            Text(tr('org.noConnection'), style: FinnText.body(t.ink3)),
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _refresh, child: Text(tr('common.retry'))),
+          ]),
         ),
       );
 
-  // ── Sarlavha: bino ikonkasi + "Tashkilotlarim" + N ta / M toza + "+" ──
-  Widget _header(BuildContext c, int total, int clean) => Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [C.brand, C.brand2]),
-              borderRadius: BorderRadius.circular(13),
+  // ── Brend sarlavha belgisi (.hd-ic) ──
+  Widget _brandBadge(FinnTokens t) => Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: FinnTokens.brand,
+          borderRadius: BorderRadius.circular(FinnTokens.rMd),
+          boxShadow: [
+            BoxShadow(
+              offset: const Offset(0, 6),
+              blurRadius: 18,
+              color: t.blue2.withValues(alpha: .28),
             ),
-            child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('org.title'),
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: -0.4, color: C.text(c))),
-              Text('$total ${tr('org.firmsWord')} · $clean ${tr('org.cleanWord')}',
-                  style: TextStyle(fontSize: 12, color: C.muted(c, .5))),
-            ]),
-          ),
-          _AddButton(onTap: () {
-            ScaffoldMessenger.of(c).showSnackBar(
-              SnackBar(content: Text(tr('org.comingSoon')), duration: const Duration(seconds: 2)),
-            );
-          }),
-        ],
+          ],
+        ),
+        child: const Icon(Icons.apartment_rounded, size: 21, color: Colors.white),
       );
 
-  // ── Filter chiplari ──
-  Widget _chips(BuildContext c, int total, int debtor, int clean) => SingleChildScrollView(
+  // ── Harakat tugmasi (.iconbtn) ──
+  Widget _iconBtn(FinnTokens t, IconData ic, {VoidCallback? onTap}) =>
+      GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: t.line),
+          ),
+          child: Icon(ic, size: 18, color: t.ink2),
+        ),
+      );
+
+  // ── Filter chiplari (.chips / .chip) ──
+  Widget _chips(FinnTokens t, int total, int debtor, int clean) =>
+      SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         child: Row(children: [
-          _chip(c, 0, tr('common.all'), total, null),
+          _chip(t, 0, tr('common.all'), total, null),
           const SizedBox(width: 8),
-          _chip(c, 1, tr('org.debtor'), debtor, C.red),
+          _chip(t, 1, tr('org.debtor'), debtor, t.red),
           const SizedBox(width: 8),
-          _chip(c, 2, tr('org.clean'), clean, C.green),
+          _chip(t, 2, tr('org.clean'), clean, t.green),
         ]),
       );
 
-  Widget _chip(BuildContext c, int idx, String label, int count, Color? dot) {
+  Widget _chip(FinnTokens t, int idx, String label, int count, Color? dot) {
     final sel = _filter == idx;
+    final fg = sel ? Colors.white : t.ink2;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => _filter = idx),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        duration: const Duration(milliseconds: 300),
+        curve: FinnTokens.ease,
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
         decoration: BoxDecoration(
-          color: sel ? C.brand : C.fill(c, .05),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: sel ? Colors.transparent : C.border(c, .06)),
+          color: sel ? t.blue : t.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: sel ? t.blue : t.line),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (dot != null && !sel) ...[
-            Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-            const SizedBox(width: 6),
+          if (dot != null) ...[
+            Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                    color: sel ? Colors.white : dot, shape: BoxShape.circle)),
+            const SizedBox(width: 7),
           ],
           Text(label,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: sel ? Colors.white : C.muted(c, .65))),
-          const SizedBox(width: 5),
+              style: FinnText.chip(fg)
+                  .copyWith(fontWeight: sel ? FontWeight.w600 : FontWeight.w500)),
+          const SizedBox(width: 6),
           Text('$count',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: sel ? Colors.white.withValues(alpha: .8) : C.muted(c, .4))),
+              style: FinnText.chip(
+                  sel ? Colors.white.withValues(alpha: .7) : t.ink3)),
         ]),
       ),
     );
   }
 }
 
-// ── "+" ikon tugma ──
-class _AddButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _AddButton({required this.onTap});
-  @override
-  Widget build(BuildContext c) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: C.fill(c, .05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: C.border(c, .07)),
-          ),
-          child: Icon(Icons.add_rounded, size: 20, color: C.muted(c, .7)),
-        ),
-      );
-}
-
-// ── Kengayuvchi firma qatori ──
+// ═══════════ Kengayuvchi firma qatori (.row + .acc) ═══════════
 class _OrgRow extends StatefulWidget {
   final Map<String, dynamic> o;
   const _OrgRow({super.key, required this.o});
@@ -202,13 +260,14 @@ class _OrgRowState extends State<_OrgRow> {
 
   @override
   Widget build(BuildContext c) {
+    final t = c.tokens;
     final o = widget.o;
-    final tone = _clean ? C.green : C.red;
-    final monoText = _clean ? C.onGrn(c) : C.onRed(c);
+    final tone = _clean ? t.tGrn : t.tRed;
+    final monoText = _clean ? t.onGrn : t.onRed;
     final debt = (o['debt'] as num?) ?? 0;
     final penalty = (o['penalty'] as num?) ?? 0;
 
-    // Akkordeon qatorlari (faqat mavjud maydonlar)
+    // Akkordeon qatorlari (faqat mavjud maydonlar).
     final rows = <List<String>>[];
     final director = _s(o['director']);
     final account = _s(o['account']);
@@ -220,112 +279,141 @@ class _OrgRowState extends State<_OrgRow> {
       rows.add([tr('org.address'), _s(o['address']) ?? tr('org.noData')]);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: C.card(c),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: C.border(c, .06)),
-        boxShadow: C.shadow(c),
-      ),
-      child: Column(children: [
-        // ── Bosiladigan yuqori qism ──
-        InkWell(
-          borderRadius: BorderRadius.circular(20),
+    return Column(children: [
+      // ── Karta qatori (.row) ──
+      Material(
+        color: t.card,
+        borderRadius: BorderRadius.circular(FinnTokens.rLg),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(FinnTokens.rLg),
           onTap: () => setState(() => _open = !_open),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(children: [
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: C.tint(c, tone),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Text(_monogram,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: monoText)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text((o['name'] ?? '—').toString(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.text(c))),
-                  const SizedBox(height: 2),
-                  Text('${tr('org.stir')} ${_s(o['stir']) ?? '—'}',
-                      style: TextStyle(fontSize: 11.5, color: C.muted(c, .42))),
-                ]),
-              ),
-              const SizedBox(width: 8),
-              if (_clean)
+          child: Ink(
+            decoration: BoxDecoration(
+              color: t.card,
+              borderRadius: BorderRadius.circular(FinnTokens.rLg),
+              border: Border.all(color: t.line),
+              boxShadow: t.sh,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+              child: Row(children: [
+                // monogramma (.m)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: C.tint(c, C.green),
-                    borderRadius: BorderRadius.circular(20),
+                    color: tone,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(tr('org.clean'),
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: C.onGrn(c))),
-                )
-              else
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(money(debt),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: C.red)),
-                  const SizedBox(height: 2),
-                  Text('${tr('org.penalty')} ${money(penalty)}',
-                      style: TextStyle(fontSize: 11, color: C.muted(c, .42))),
-                ]),
-              const SizedBox(width: 8),
-              AnimatedRotation(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                turns: _open ? 0.5 : 0,
-                child: Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: C.muted(c, .4)),
-              ),
-            ]),
-          ),
-        ),
-        // ── Akkordeon ──
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 260),
-          firstCurve: Curves.easeOut,
-          secondCurve: Curves.easeOut,
-          sizeCurve: Curves.easeOut,
-          crossFadeState: _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-          firstChild: const SizedBox(width: double.infinity),
-          secondChild: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: C.fill(c, .05),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                children: [
-                  for (final r in rows) _kv(c, r[0], r[1]),
-                ],
-              ),
+                  child: Text(_monogram,
+                      style: TextStyle(
+                        fontFamily: 'InterTight',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: monoText,
+                      )),
+                ),
+                const SizedBox(width: 13),
+                // nom + STIR
+                Expanded(
+                  child:
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text((o['name'] ?? '—').toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: FinnText.rowTitle(t.ink)),
+                    const SizedBox(height: 2),
+                    Text('${tr('org.stir')} ${_s(o['stir']) ?? '—'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: FinnText.rowSub(t.ink3)),
+                  ]),
+                ),
+                const SizedBox(width: 13),
+                // o'ng tomon (.rt): qarz/penya yoki "Toza" pill
+                if (_clean)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: t.tGrn,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(tr('org.clean'), style: FinnText.pill(t.onGrn)),
+                  )
+                else
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(money(debt), style: FinnText.rowValue(t.red)),
+                    const SizedBox(height: 2),
+                    Text('${tr('org.penalty')} ${money(penalty)}',
+                        style: FinnText.rowSub(t.ink3).copyWith(fontSize: 11)),
+                  ]),
+                const SizedBox(width: 11),
+                // chevron (.cv)
+                AnimatedRotation(
+                  duration: const Duration(milliseconds: 400),
+                  curve: FinnTokens.ease,
+                  turns: _open ? 0.5 : 0,
+                  child: Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 18, color: t.ink4),
+                ),
+              ]),
             ),
           ),
         ),
-      ]),
-    );
+      ),
+      // ── Akkordeon (.acc / .acc-in) ──
+      AnimatedCrossFade(
+        duration: const Duration(milliseconds: 400),
+        firstCurve: FinnTokens.ease,
+        secondCurve: FinnTokens.ease,
+        sizeCurve: FinnTokens.ease,
+        crossFadeState:
+            _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+        firstChild: const SizedBox(width: double.infinity),
+        secondChild: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: t.key,
+              borderRadius: BorderRadius.circular(FinnTokens.rLg),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++)
+                  _kv(t, rows[i][0], rows[i][1], top: i > 0),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ]);
   }
 
-  Widget _kv(BuildContext c, String k, String v) => Padding(
+  // ── kalit-qiymat qatori (.kv) ──
+  Widget _kv(FinnTokens t, String k, String v, {required bool top}) => Container(
         padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: top
+            ? BoxDecoration(
+                border: Border(top: BorderSide(color: t.line2)),
+              )
+            : null,
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            width: 96,
-            child: Text(k, style: TextStyle(fontSize: 12, color: C.muted(c, .45))),
-          ),
+          Text(k,
+              style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 13, height: 1.3)
+                  .copyWith(color: t.ink3)),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(v,
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: C.text(c))),
+                style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3)
+                    .copyWith(color: t.ink)),
           ),
         ]),
       );

@@ -18,6 +18,9 @@ const Map<String, Map<String, String>> tr = {
   'risk.locked.perk3': {'uz': 'E-faktura va kontragent risklari', 'uzc': 'Э-фактура ва контрагент рисклари', 'ru': 'Риски э-фактуры и контрагентов', 'en': 'E-invoice and counterparty risks'},
   'risk.locked.perk4': {'uz': 'Hisob bloklash xavfi haqida ogohlantirish', 'uzc': 'Ҳисоб блоклаш хавфи ҳақида огоҳлантириш', 'ru': 'Предупреждение о риске блокировки счёта', 'en': 'Account blocking risk warning'},
   'risk.locked.perk5': {'uz': 'PDF hisobot yuklab olish', 'uzc': 'PDF ҳисобот юклаб олиш', 'ru': 'Скачивание PDF-отчёта', 'en': 'PDF report download'},
+  'risk.locked.currentPlan': {'uz': 'Joriy tarif: ', 'uzc': 'Жорий тариф: ', 'ru': 'Текущий тариф: ', 'en': 'Current plan: '},
+  'risk.locked.upgrade': {'uz': 'Tarifni kengaytirish', 'uzc': 'Тарифни кенгайтириш', 'ru': 'Расширить тариф', 'en': 'Upgrade plan'},
+  'risk.locked.upgradeHint': {'uz': 'Tarif finn.uz saytida yangilanadi', 'uzc': 'Тариф finn.uz сайтида янгиланади', 'ru': 'Тариф обновляется на сайте finn.uz', 'en': 'Plan is upgraded on finn.uz'},
 
   // ── Risk darajasi (status pill) ──
   'risk.level.low': {'uz': 'Past risk', 'uzc': 'Паст риск', 'ru': 'Низкий риск', 'en': 'Low risk'},

@@ -1,5 +1,18 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Rasmga tushish (avatar). Galereya — RUXSATSIZ Photo Picker orqali. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- TZ 4.2.2 — push bildirishnoma. POST_NOTIFICATIONS Android 13+ uchun
+         SHART (avval sideload'da olib tashlangan edi; push joriy etilgach qaytarildi). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- DIQQAT: SMS/GALEREYA(READ_MEDIA_IMAGES)/BILDIRISHNOMA ruxsatlari
+         ATAYIN QO'SHILMAGAN — sideload (finn.uz/app) APK'da Google Play Protect
+         ularni "moliyaviy firibgarlik/deliktli ma'lumot" deb bloklaydi
+         ("Приложение заблокировано для защиты устройства"). Bu ruxsatlar
+         Play Market versiyasida qo'shiladi (u yerda Play Protect bloklamaydi). -->
+
 
     <application
         android:label="FINN AI"
@@ -26,12 +39,24 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- OneID deep-link: tashqi brauzer finnai://oneid?token=... ga qaytadi. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="finnai" android:host="oneid"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Impeller o'chirilgan: Xiaomi/MIUI qurilmalarda ghost/ustma-ust
+             render artefaktlarini keltirardi. Skia renderer barqaror. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -43,5 +68,32 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Android 11+ (API 30) package visibility: bularsiz canLaunchUrl()
+             https havolalar uchun FALSE qaytaradi va to'lov ilovasi ochilmaydi
+             ("ilova topilmadi"). Bu RUXSAT EMAS — <queries> Play Protect'ni
+             qo'zg'atmaydi (https://developer.android.com/training/package-visibility).
+             1) https VIEW — brauzer / app-link (Uzum, Paynet, Payme, Click) ni ko'rish. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <!-- tel: (agar to'lov ko'rsatmasida raqam bosilsa) -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <!-- 2) To'lov ilovalarini bevosita ko'rish (app-link ularga yo'naltirilishi
+             uchun). Bu paketlar o'rnatilmagan bo'lsa e'tiborga olinmaydi (zararsiz). -->
+        <package android:name="uz.dida.payme"/><!-- Payme -->
+        <package android:name="air.com.ssdsoftwaresolutions.clickuz"/><!-- Click Evolution -->
+        <package android:name="com.click.evo"/><!-- Click (muqobil) -->
+        <package android:name="uz.uzumbank.mobile"/><!-- Uzum Bank -->
+        <package android:name="com.uzumbank.app"/><!-- Uzum Bank (muqobil) -->
+        <package android:name="uz.paynet.app"/><!-- Paynet -->
+        <package android:name="com.paynet.android"/><!-- Paynet (muqobil) -->
     </queries>
 </manifest>

@@ -60,14 +60,16 @@ class _StaggerInState extends State<StaggerIn> {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedSlide(
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
-        offset: _shown ? Offset.zero : const Offset(0, 0.09),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeOut,
-          opacity: _shown ? 1 : 0,
+  Widget build(BuildContext context) => AnimatedOpacity(
+        duration: const Duration(milliseconds: 340),
+        curve: Curves.easeOut,
+        opacity: _shown ? 1 : 0,
+        // FIKSLANGAN 10px yuqoriga siljish (AnimatedSlide FRAKSIYA edi — baland
+        // kartada katta piksel bo'lib pastdagi kartani USTIGA bosardi = overlap).
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 340),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(0, _shown ? 0 : 10, 0),
           child: widget.child,
         ),
       );
