@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FINN AI — tarmoq xavfsizligi siyosati (ekspertiza 2.2.3).
+
+  1. Ochiq (HTTP) trafik butunlay taqiqlanadi — faqat HTTPS.
+  2. Faqat tizim CA'lariga ishoniladi. Foydalanuvchi qo'lda o'rnatgan CA
+     (Burp Suite, mitmproxy, Charles) ishonchsiz — MITM imkonsiz.
+  3. finn.uz uchun SSL pinning — native tarmoq qatlami va OneID WebView
+     ham shu siyosatga bo'ysunadi. Dart qatlamidagi pinning esa
+     lib/services/pinned_http.dart da (bir xil to'rtta ildiz).
+
+  Barg sertifikat ATAYLAB pin qilinmagan: Let's Encrypt uni har 90 kunda
+  almashtiradi. To'rtta mustaqil ildizning ochiq kaliti (SPKI SHA-256)
+  pin qilingan — bittasi o'zgarsa, qolganlari zaxira bo'ladi.
+
+  expiration: shu sanadan keyin pinning o'chadi (ochiq qoladi) — ildizlar
+  almashgan taqdirda ilova ishlamay qolishining oldini oladi.
+-->
+<network-security-config>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">finn.uz</domain>
+        <pin-set expiration="2034-12-31">
+            <!-- ISRG Root X1 — 2035 -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+            <!-- ISRG Root X2 — 2040 -->
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+            <!-- Let's Encrypt Root YE (Gen Y, ECDSA) — 2045 -->
+            <pin digest="SHA-256">sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</pin>
+            <!-- Let's Encrypt Root YR (Gen Y, RSA) — 2045 -->
+            <pin digest="SHA-256">fk6IOKit1ild5647BH06ujSIq5XbCgqlbYl6ANhhi88=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+</network-security-config>

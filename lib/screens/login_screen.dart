@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api.dart';
+import '../services/endpoints.dart';
 import '../services/i18n.dart';
 import '../services/lock.dart';
 import '../theme/finn_tokens.dart';
@@ -90,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
   /// oxirida `finnai://oneid?token=` deep-link bilan ilovaga qaytadi
   /// (main.dart _onDeepLink token'ni saqlab HomeShell'ga o'tadi).
   Future<void> _oneid() async {
-    final uri = Uri.parse('https://finn.uz/auth/oneid?app=1');
+    final uri = Uri.parse(Ep.oneidApp);
     try {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok && mounted) {
@@ -425,6 +426,14 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
     _build();
   }
 
+  /// WebView'dagi barcha qoldiqlarni o'chirish: cookie (veb-sessiya), kesh
+  /// (/m-token javobi — ichida token matni) va localStorage.
+  Future<void> _wipeWebView() async {
+    try { await WebViewCookieManager().clearCookies(); } catch (_) {}
+    try { await _c?.clearCache(); } catch (_) {}
+    try { await _c?.clearLocalStorage(); } catch (_) {}
+  }
+
   void _build() {
     _watchdog?.cancel();
     // ESKI id.egov.uz/finn sessiya cookie'lari OneID authorize oqimini buzib
@@ -458,7 +467,16 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
             try {
               final res = await _c!.runJavaScriptReturningResult('document.body.innerText');
               final m = RegExp(r'"token"\s*:\s*"([^"]+)"').firstMatch(res.toString());
-              if (m != null && mounted) { Navigator.of(context).pop(m.group(1)); return; }
+              if (m != null && mounted) {
+                // Ekspertiza 2.2.4: token olingach WebView'da veb-sessiya va
+                // sahifa nusxasi (token matni ham) qolmasin — ular ilova
+                // papkasida shifrlanmagan holda saqlanadi. Token endi faqat
+                // shifrlangan xotirada (Keystore/Keychain) bo'ladi.
+                final token = m.group(1);
+                await _wipeWebView();
+                if (mounted) Navigator.of(context).pop(token);
+                return;
+              }
             } catch (_) {}
             if (mounted) setState(() => _error = tr('login.errAuthIncomplete'));
             return;
@@ -468,7 +486,7 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
             if (!_finishing) {
               _finishing = true;
               if (mounted) setState(() {});
-              _c!.loadRequest(Uri.parse('https://finn.uz/m-token'));
+              _c!.loadRequest(Uri.parse(Ep.mtoken));
             }
             return;
           }
@@ -481,7 +499,7 @@ class _OneIdLoginPageState extends State<OneIdLoginPage> {
           }
         },
       ))
-      ..loadRequest(Uri.parse('https://finn.uz/auth/oneid'));
+      ..loadRequest(Uri.parse(Ep.oneid));
   }
 
   @override

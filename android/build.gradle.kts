@@ -2,6 +2,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // freeRASP (Talsec) native kutubxonasi — Maven Central'da emas.
+        // Plagin o'zi ham e'lon qiladi, lekin Gradle loyiha darajasidagi
+        // repozitoriylarni e'tiborsiz qoldirishi mumkin — shu sabab bu yerda.
+        maven { url = uri("https://europe-west3-maven.pkg.dev/talsec-artifact-repository/freerasp") }
+        maven { url = uri("https://europe-west3-maven.pkg.dev/talsec-artifact-repository/common") }
     }
 }
 

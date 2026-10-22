@@ -19,6 +19,8 @@ import 'screens/login_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/pin_screen.dart';
 import 'services/push_service.dart';
+import 'services/security.dart';
+import 'screens/threat_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 /// FCM fon xabari — ilova yopiq/fonda bo'lganda OS o'zi ko'rsatadi,
@@ -26,11 +28,19 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 @pragma('vm:entry-point')
 Future<void> _fcmBackground(RemoteMessage message) async {}
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(_fcmBackground);
+  }
+  // RASP — root/jailbreak, hook, yaxlitlik, emulyator (ekspertiza 2.2.x/2.3.x).
+  // UI'dan OLDIN ishga tushadi: xavfli muhitda bitta ham ekran ochilmasin.
+  try {
+    await Security.init();
+  } catch (_) {
+    // RASP ishga tushmasa ham ilova yiqilmasin; tekshiruvlar baribir
+    // native darajada killOnBypass bilan himoyalangan.
   }
   runApp(const FinnApp());
 }
@@ -283,6 +293,12 @@ class _FinnAppState extends State<FinnApp> {
         theme: _build(Brightness.light),
         darkTheme: _build(Brightness.dark),
         themeMode: ThemeState.i.mode,
+        // Xavf aniqlansa — barcha marshrutlar ustidan bloklovchi ekran.
+        builder: (context, child) => ValueListenableBuilder<String?>(
+          valueListenable: Security.threat,
+          builder: (_, threat, __) =>
+              threat == null ? (child ?? const SizedBox.shrink()) : ThreatScreen(type: threat),
+        ),
         home: _start == null
             ? const Scaffold(body: Center(child: CircularProgressIndicator(color: C.cyan)))
             : IdleGuard(

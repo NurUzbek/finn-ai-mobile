@@ -6,6 +6,7 @@ import '../theme/finn_tokens.dart';
 import '../services/permits.dart';
 import '../widgets/finn_screen.dart';
 import '../widgets/common.dart';
+import '../widgets/pinned_image.dart';
 import '../services/api.dart';
 import '../services/lock.dart';
 import '../services/theme.dart';
@@ -357,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: avatar.isEmpty
                   ? Center(child: Text(_mono(name),
                       style: FinnText.bigValue(Colors.white).copyWith(fontSize: 22)))
-                  : Image.network(avatar, fit: BoxFit.cover,
+                  : PinnedImage(avatar, fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Center(child: Text(_mono(name),
                           style: FinnText.bigValue(Colors.white).copyWith(fontSize: 22)))),
             ),
@@ -981,7 +982,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
                   if (_picked != null)
                     Image.memory(_picked!, fit: BoxFit.cover)
                   else if (_avatar != null)
-                    Image.network(_avatar!, fit: BoxFit.cover,
+                    PinnedImage(_avatar!, fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Center(
                             child: Text(initial,
                                 style: FinnText.heroValue(Colors.white)

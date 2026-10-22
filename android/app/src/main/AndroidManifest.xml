@@ -14,10 +14,20 @@
          Play Market versiyasida qo'shiladi (u yerda Play Protect bloklamaydi). -->
 
 
+    <!--
+      Ekspertiza 2.2.4: ilova ma'lumotlari (token, sozlamalar) zaxira nusxa
+      (adb backup / bulut) yoki boshqa qurilmaga ko'chirish orqali chiqmaydi.
+      Ekspertiza 2.2.3: tarmoq siyosati — faqat HTTPS, foydalanuvchi CA'lari
+      ishonchsiz, finn.uz uchun SSL pinning.
+    -->
     <application
         android:label="FINN AI"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

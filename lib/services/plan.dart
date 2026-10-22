@@ -1,3 +1,4 @@
+import 'endpoints.dart';
 import 'package:flutter/foundation.dart';
 import 'api.dart';
 
@@ -12,7 +13,7 @@ class PlanState extends ChangeNotifier {
   bool isTrial = false;
   int? daysLeft;
   String? endsAt;
-  String upgradeUrl = 'https://finn.uz/subscription';
+  String upgradeUrl = Ep.subscription;
   Map<String, dynamic> features = {};
   bool loaded = false;
 

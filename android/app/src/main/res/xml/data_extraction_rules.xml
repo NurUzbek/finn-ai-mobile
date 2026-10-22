@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ekspertiza 2.2.4: ilova ma'lumotlari (shifrlangan token, sozlamalar)
+  zaxira nusxa orqali ham, qurilmadan-qurilmaga ko'chirish orqali ham
+  ilovadan tashqariga CHIQMAYDI. Android 12+ uchun (eski versiyalarda
+  Manifest'dagi allowBackup="false" amal qiladi).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

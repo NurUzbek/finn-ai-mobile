@@ -62,6 +62,16 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+
+            // Ekspertiza 2.2.7: R8 obfuskatsiyasi — sinf/metod nomlari
+            // o'zgartiriladi, ishlatilmagan kod va resurslar olib tashlanadi.
+            // Dart kodi esa `flutter build --obfuscate` bilan obfuskatsiya qilinadi.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

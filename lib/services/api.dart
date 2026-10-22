@@ -5,11 +5,16 @@ import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'push_service.dart';
+import 'pinned_http.dart';
+import 'endpoints.dart';
 
 /// FINN AI backend API klienti (Laravel Sanctum Bearer token).
-/// Token Keychain (iOS) / Keystore (Android) da shifrlangan holda saqlanadi — TZ talabi.
+/// Token Keychain (iOS) / Keystore (Android, EncryptedSharedPreferences) da
+/// shifrlangan holda saqlanadi — ekspertiza 2.2.4 / TZ talabi.
+/// Barcha so'rovlar SSL pinning qilingan klient orqali ketadi — ekspertiza 2.2.3.
 class Api {
-  static const String base = 'https://finn.uz/api/v1';
+  /// Manzil kodda ochiq yozilmaydi — ekspertiza 2.2.7 (endpoints.dart).
+  static final String base = Ep.api;
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
@@ -33,7 +38,7 @@ class Api {
   static Future<Map<String, dynamic>> uploadAvatar(
       List<int> bytes, String filename) async {
     try {
-      final req = http.MultipartRequest('POST', Uri.parse('$base/profile/avatar'));
+      final req = http.MultipartRequest('POST', Uri.parse('$base${Ep.avatar}'));
       req.headers['Accept'] = 'application/json';
       final t = await token;
       if (t != null) req.headers['Authorization'] = 'Bearer $t';
@@ -46,7 +51,8 @@ class Api {
       final mt = mimes[ext] ?? ['image', 'jpeg'];
       req.files.add(http.MultipartFile.fromBytes('image', bytes,
           filename: filename, contentType: MediaType(mt[0], mt[1])));
-      final streamed = await req.send().timeout(const Duration(seconds: 45));
+      final client = await PinnedHttp.client();
+      final streamed = await client.send(req).timeout(const Duration(seconds: 45));
       final resp = await http.Response.fromStream(streamed);
       return jsonDecode(resp.body) as Map<String, dynamic>;
     } catch (_) {
@@ -88,7 +94,8 @@ class Api {
     }
 
     late http.Response r;
-    final client = http.Client();
+    // Yagona pinned klient — YOPILMAYDI (ilova davomida qayta ishlatiladi).
+    final client = await PinnedHttp.client();
     try {
       // followRedirects: false — POST redirect'ga tushib GET'ga aylanishini oldini olamiz
       // (aks holda "GET method not supported" xatosi chiqadi).
@@ -100,8 +107,6 @@ class Api {
       r = await http.Response.fromStream(streamed);
     } catch (e) {
       return {'ok': false, 'message': 'Internetga ulanib bo\'lmadi'};
-    } finally {
-      client.close();
     }
     // Server noto'g'ri redirect qilsa (Accept yo'qligidan) — aniq xabar
     if (r.statusCode >= 300 && r.statusCode < 400) {

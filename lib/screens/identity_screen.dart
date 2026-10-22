@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/finn_tokens.dart';
 import '../widgets/finn_screen.dart';
+import '../services/endpoints.dart';
 import '../services/api.dart';
 import '../services/i18n.dart';
 import '../widgets/common.dart';
@@ -24,7 +25,7 @@ class _IdentityScreenState extends State<IdentityScreen> {
   /// token'i deep-link bilan qaytadi (main.dart _onDeepLink). id.egov.uz kabinetiga
   /// tashlab qo'ymaydi.
   Future<void> _openEgov() async {
-    final uri = Uri.parse('https://finn.uz/auth/oneid?app=1');
+    final uri = Uri.parse(Ep.oneidApp);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {}
