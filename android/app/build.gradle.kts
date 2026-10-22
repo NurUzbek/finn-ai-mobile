@@ -36,6 +36,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Faqat haqiqiy telefon arxitekturalari. x86_64 faqat emulyatorlar
+        // uchun kerak — emulyatorlar esa RASP bilan bloklanadi (ekspertiza
+        // 2.2.6). Plagin native kutubxonalariga ham (freeRASP libts.so ~20 MB)
+        // qo'llanadi — `--target-platform` faqat Flutter'nikiga ta'sir qiladi.
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
     }
 
     signingConfigs {
