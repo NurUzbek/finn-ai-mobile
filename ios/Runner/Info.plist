@@ -79,5 +79,14 @@
 			</array>
 		</dict>
 	</array>
+	<!--
+	  Eksport shifrlash deklaratsiyasi. Ilova faqat standart HTTPS/TLS va
+	  OS taqdim etgan shifrlashdan foydalanadi (Keychain) — bu eksport
+	  qoidalaridan ozod. Shu kalit bo'lmasa, App Store Connect har bir
+	  build uchun qo'lda javob talab qiladi va TestFlight'ga yuborish
+	  MISSING_EXPORT_COMPLIANCE bilan to'xtaydi.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

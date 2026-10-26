@@ -97,7 +97,7 @@ jobs:
         run: |
           app-store-connect publish \
             --path "$(find build/ios/ipa -name '*.ipa' | head -1)" \
-            --testflight || echo "TestFlight yuklanmadi — App Store Connect'da app record yaratilishi kerak (.ipa baribir tayyor)"
+            --testflight || echo "TestFlight beta review.ga yuborilmadi — sababi yuqoridagi logda (build ASC.ga yuklangan bo.lishi mumkin; .ipa artefakt baribir tayyor)"
 
       - name: Imzolangan .ipa artefakt
         uses: actions/upload-artifact@v4
