@@ -29,6 +29,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Android ham aynan shu versiyada yig'ilgan — ikkala platforma bir xil SDK.
+          flutter-version: 3.44.9
 
       - name: Codemagic CLI tools (imzo avtomatizatsiyasi)
         run: pip3 install --break-system-packages codemagic-cli-tools
