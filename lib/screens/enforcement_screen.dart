@@ -23,6 +23,7 @@ class _EnforcementScreenState extends State<EnforcementScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('enf.title'),
       subtitle: tr('enf.subtitle'),
       showNav: false,

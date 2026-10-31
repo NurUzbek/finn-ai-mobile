@@ -49,6 +49,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
             : tr('org.subtitleFallback');
 
         return FinnScreen(
+          govSources: true,
           title: tr('org.title'),
           subtitle: subtitle,
           showNav: false,

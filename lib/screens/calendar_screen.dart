@@ -47,6 +47,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('cal.title'),
       subtitle: '${_monthName(_month)} $_year',
       showNav: false,

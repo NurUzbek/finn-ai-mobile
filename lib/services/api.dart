@@ -7,6 +7,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'push_service.dart';
 import 'pinned_http.dart';
 import 'endpoints.dart';
+import 'attestation.dart';
 
 /// FINN AI backend API klienti (Laravel Sanctum Bearer token).
 /// Token Keychain (iOS) / Keystore (Android, EncryptedSharedPreferences) da
@@ -31,7 +32,21 @@ class Api {
   static Future<void> clearToken() async {
     _token = null;
     await _storage.delete(key: 'token');
+    // App Attest kaliti serverda foydalanuvchiga bog'langan — boshqa akkaunt
+    // kirganda yangi kalit attest qilinsin.
+    await _storage.delete(key: 'attest_key');
   }
+
+  // ── Server-side attestatsiya (attestation.dart) ──
+  static Future<String> attestNonce() async =>
+      (await _req('GET', '/attest/nonce', attest: false))['nonce'] as String? ?? '';
+
+  static Future<bool> attestVerify(String platform, Map<String, dynamic> payload) async =>
+      (await _req('POST', '/attest/verify', body: {'platform': platform, ...payload}, attest: false))['attested'] == true;
+
+  static Future<String?> attestKeyId() => _storage.read(key: 'attest_key');
+  static Future<void> saveAttestKeyId(String? id) =>
+      id == null ? _storage.delete(key: 'attest_key') : _storage.write(key: 'attest_key', value: id);
 
   /// Profil rasmini yuklash (multipart). bytes + fayl nomi (png/jpg/heic).
   /// Format tekshiruvi backendda ham bor — qolgan formatlar rad etiladi.
@@ -81,6 +96,7 @@ class Api {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    bool attest = true,
     Duration timeout = const Duration(seconds: 20),
   }) async {
     final uri = Uri.parse('$base$path');
@@ -116,6 +132,16 @@ class Api {
     if (r.statusCode == 401) {
       await clearToken();
       return {'ok': false, 'message': 'Sessiya tugadi. Qaytadan kiring.', 'unauthorized': true};
+    }
+    // 428 — server qurilma attestatsiyasini so'rayapti: bir marta attest qilib,
+    // so'rovni qayta yuboramiz. Muvaffaqiyatsiz bo'lsa ma'lumot berilmaydi.
+    if (r.statusCode == 428 && attest) {
+      try {
+        await Attestation.ensure(force: true);
+      } catch (_) {
+        return {'ok': false, 'message': 'Qurilma xavfsizlik tekshiruvidan o\'tmadi.', 'attestation': false};
+      }
+      return _req(method, path, body: body, auth: auth, attest: false, timeout: timeout);
     }
     try {
       return Map<String, dynamic>.from(jsonDecode(r.body));

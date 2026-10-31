@@ -36,6 +36,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('cur.title'),
       subtitle: _sub,
       showNav: false,

@@ -94,6 +94,7 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('cp.title'),
       subtitle: _sub.isEmpty ? tr('cp.subtitle') : _sub,
       showNav: false,

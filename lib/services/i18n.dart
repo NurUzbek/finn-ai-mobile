@@ -25,6 +25,7 @@ import '../i18n/counterparty_tr.dart' as counterparty;
 import '../i18n/audit_tr.dart' as audit;
 import '../i18n/chat_tr.dart' as chat;
 import '../i18n/enforcement_tr.dart' as enforcement;
+import '../i18n/sources_tr.dart' as sources;
 
 /// Ilova tili — foydalanuvchi tanlovi qurilmada saqlanadi.
 /// Singleton (ThemeState kabi): notifyListeners bilan butun ilova qayta quriladi.
@@ -79,6 +80,7 @@ class I18n extends ChangeNotifier {
     ...audit.tr,
     ...chat.tr,
     ...enforcement.tr,
+    ...sources.tr,
   };
 
   /// Kalitni joriy tilga tarjima qiladi. Topilmasa — uz, u ham bo'lmasa — kalit.

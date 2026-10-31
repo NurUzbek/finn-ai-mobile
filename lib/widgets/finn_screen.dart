@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/finn_tokens.dart';
 import '../widgets/finn_bead_nav.dart';
+import '../widgets/gov_sources.dart';
 import '../services/i18n.dart';
 
 /// Ekran karkasi.
@@ -33,6 +34,7 @@ class FinnScreen extends StatelessWidget {
     this.reserveNav = false,
     this.navIndex = 0,
     this.onNavChanged,
+    this.govSources = false,
   });
 
   final String title;
@@ -49,6 +51,10 @@ class FinnScreen extends StatelessWidget {
   final bool reserveNav;
   final int navIndex;
   final ValueChanged<int>? onNavChanged;
+
+  /// Davlat ma'lumoti ko'rsatiladigan ekran — oxirida rasmiy manbalar va
+  /// "davlat organi emas" yozuvi chiqadi (Google Play Misleading Claims).
+  final bool govSources;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +89,10 @@ class FinnScreen extends StatelessWidget {
                       // ── MUHIM: busiz kontent ostida bo'sh joy qoladi ──
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
+                      children: [
+                        ...children,
+                        if (govSources) const GovSourcesFooter(),
+                      ],
                     ),
                   ),
                 ),

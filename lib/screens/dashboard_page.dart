@@ -152,6 +152,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _shell(Widget body) => FinnScreen(
+        govSources: true,
         title: tr('nav.home'),
         subtitle: tr('dash.subtitle'),
         navIndex: widget.navIndex,

@@ -69,6 +69,7 @@ class _RiskScreenState extends State<RiskScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('risk.title'),
       subtitle: tr('risk.subtitle'),
       showNav: false,

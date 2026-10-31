@@ -96,4 +96,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Server-side attestatsiya (PlayIntegrityPlugin.kt)
+    implementation("com.google.android.play:integrity:1.4.0")
 }

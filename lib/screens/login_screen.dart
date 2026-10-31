@@ -8,6 +8,7 @@ import '../services/endpoints.dart';
 import '../services/i18n.dart';
 import '../services/lock.dart';
 import '../theme/finn_tokens.dart';
+import '../widgets/gov_sources.dart';
 import 'home_shell.dart';
 import 'pin_screen.dart';
 
@@ -237,6 +238,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextSpan(text: tr('login.legal2')),
               ],
             ), textAlign: TextAlign.center)),
+            // Google Play Misleading Claims: kirishdan oldin ham "davlat organi emas"
+            const GovSourcesFooter(),
           ]),
         ),
       );

@@ -7,6 +7,7 @@ import '../services/permits.dart';
 import '../widgets/finn_screen.dart';
 import '../widgets/common.dart';
 import '../widgets/pinned_image.dart';
+import '../widgets/gov_sources.dart';
 import '../services/api.dart';
 import '../services/lock.dart';
 import '../services/theme.dart';
@@ -314,10 +315,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.mail_outline_rounded, color: context.tokens.blue, tint: context.tokens.tBlu,
               title: tr('profile.email'), sub: email),
           _row(context,
+              icon: Icons.account_balance_outlined, color: context.tokens.amber, tint: context.tokens.tAmb,
+              title: tr('src.title'), sub: tr('src.rowSub'),
+              onTap: () => GovSources.sheet(context)),
+          _row(context,
               icon: Icons.logout_rounded, color: context.tokens.red, tint: context.tokens.tRed,
               title: tr('profile.logout'), danger: true, onTap: _logout),
         ])),
 
+        const SizedBox(height: 16),
+        const GovDisclaimer(),
         const SizedBox(height: 20),
         Center(child: Text(tr('profile.version'),
             style: FinnText.rowSub(context.tokens.ink4))),

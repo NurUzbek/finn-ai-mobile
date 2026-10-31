@@ -37,6 +37,7 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FinnScreen(
+      govSources: true,
       title: tr('nav.home'),
       subtitle: tr('dash.subtitle'),
       showNav: false,

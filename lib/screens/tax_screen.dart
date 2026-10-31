@@ -25,6 +25,7 @@ class _TaxScreenState extends State<TaxScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     return FinnScreen(
+      govSources: true,
       title: tr('tax.header'),
       subtitle: tr('tax.subtitle'),
       showNav: false,
