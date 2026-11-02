@@ -29,9 +29,14 @@ class DeviceSecurityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
 
-    // Kutilgan imzo sertifikati SHA-256 (base64) — PlayIntegrityVerifier dagi
-    // finn.uz upload kaliti bilan bir xil. Ilova qayta imzolansa, mos kelmaydi.
-    private val expectedSig = "j7mLhbvRfbzqX6c2akR9l1g3l6lPT8sbCsdPT9TY4xk="
+    // Kutilgan imzo sertifikatlari SHA-256 (base64). Ilova qayta imzolansa
+    // (repackaging), hech biriga mos kelmaydi → yaxlitlik buzilgan.
+    //   1) finn.uz upload kaliti — sideload (finn.uz/app) foydalanuvchilarida
+    //   2) Play App Signing kaliti — Google Play'dan o'rnatilganlarda
+    private val expectedSigs = setOf(
+        "j7mLhbvRfbzqX6c2akR9l1g3l6lPT8sbCsdPT9TY4xk=",
+        "bZCeu8rBIOqfWyQyQnHCPB/GMtEU+PZuUPaJ23+Qwdo="
+    )
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -141,7 +146,7 @@ class DeviceSecurityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             val md = MessageDigest.getInstance("SHA-256")
             sigs.any {
                 val b64 = android.util.Base64.encodeToString(md.digest(it.toByteArray()), android.util.Base64.NO_WRAP)
-                b64 == expectedSig
+                expectedSigs.contains(b64)
             }
         }.getOrDefault(false)
     }
