@@ -9,9 +9,11 @@
 name: FINN AI build
 
 on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:   # qo'lda ishga tushirish tugmasi
+  # Avtomatik push-trigger O'CHIRILDI: bu eski sinov workflow (imzosiz, keystore'siz)
+  # har push'da uzilib, behuda xato bildirishnomalari yuborardi. Haqiqiy build'lar:
+  #   - Android (imzolangan): serverda yoki android-release.yml
+  #   - iOS (TestFlight): ios-signed.yml
+  workflow_dispatch:   # faqat qo'lda ishga tushirish
 
 jobs:
   android:
