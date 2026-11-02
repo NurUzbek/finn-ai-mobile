@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'security.dart';
 
 /// Server-side attestatsiya — RASP (freeRASP) himoyasining "langari".
 ///
@@ -28,6 +29,20 @@ class Attestation {
   /// Bir vaqtda bitta attestatsiya: server foydalanuvchiga bitta nonce
   /// saqlaydi, parallel urinishlar bir-birining nonce'ini buzardi.
   static Future<void>? _inflight;
+
+  static void reset() => _lastOk = null;
+
+  /// Server javobi: Google tasdiqlagan hukm bo'lsa — ilova bloklanadi.
+  static Future<bool> _verify(String platform, Map<String, dynamic> payload) async {
+    final res = await Api.attestVerify(platform, payload);
+    switch (res['code']) {
+      case 'tampered':
+        await Security.block('integrity');
+      case 'device':
+        await Security.block('root');
+    }
+    return res['attested'] == true;
+  }
 
   static Future<void> ensure({bool force = false}) {
     if (kIsWeb) return Future.value();
@@ -62,7 +77,7 @@ class Attestation {
     }
     if (token.isEmpty) throw const AttestationException('android_empty');
 
-    final ok = await Api.attestVerify('android', {'token': token, 'nonce': nonce});
+    final ok = await _verify('android', {'token': token, 'nonce': nonce});
     if (!ok) throw const AttestationException('android_rejected');
   }
 
@@ -78,7 +93,7 @@ class Attestation {
       final attestation = res?['attestation'] as String? ?? '';
       if (newKey.isEmpty || attestation.isEmpty) throw const AttestationException('ios_attest_empty');
 
-      final ok = await Api.attestVerify('ios_attest', {'keyId': newKey, 'attestation': attestation, 'nonce': nonce});
+      final ok = await _verify('ios_attest', {'keyId': newKey, 'attestation': attestation, 'nonce': nonce});
       if (!ok) throw const AttestationException('ios_attest_rejected');
       await Api.saveAttestKeyId(newKey);
       return;
@@ -88,7 +103,7 @@ class Attestation {
     final assertion = res?['assertion'] as String? ?? '';
     if (assertion.isEmpty) throw const AttestationException('ios_assert_empty');
 
-    final ok = await Api.attestVerify('ios_assert', {'keyId': keyId, 'assertion': assertion, 'nonce': nonce});
+    final ok = await _verify('ios_assert', {'keyId': keyId, 'assertion': assertion, 'nonce': nonce});
     if (!ok) {
       // Kalit serverda yo'q (masalan, boshqa akkaunt) — keyingi safar qayta attest
       await Api.saveAttestKeyId(null);

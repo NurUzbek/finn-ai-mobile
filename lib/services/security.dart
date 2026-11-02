@@ -1,10 +1,12 @@
 import 'dart:io' show Platform;
+import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:freerasp/freerasp.dart';
 
 import 'api.dart';
+import 'integrity.dart';
 import 'lock.dart';
 
 /// Ilova ishlash muhitini himoyalash — RASP (Runtime Application Self-Protection).
@@ -37,25 +39,35 @@ class Security {
 
   static bool _started = false;
 
+  /// Xavfni qayd etib, sessiyani yopadi. Server attestatsiyasi Google
+  /// tasdiqlagan hukm qaytarganda ham shu chaqiriladi (attestation.dart).
+  static Future<void> block(String type) async {
+    if (kIsWeb || kDebugMode) return;
+    if (threat.value != null) return;
+    threat.value = type;
+    try {
+      await Api.clearToken();
+      await Lock.clear();
+    } catch (_) {}
+  }
+
   static Future<void> init() async {
     // Web'da RASP yo'q; debug'da esa debugger/emulyator doim bor — o'chiq.
     if (kIsWeb || kDebugMode || _started) return;
     _started = true;
-
-    Future<void> block(String type) async {
-      if (threat.value != null) return;
-      threat.value = type;
-      try {
-        await Api.clearToken();
-        await Lock.clear();
-      } catch (_) {}
-    }
 
     // ── Ikkinchi, MUSTAQIL qatlam (Android) ──
     // freeRASP'ga qo'shimcha: native Kotlin o'z tekshiruvini bajaradi
     // (root, debugger, hook, imzo yaxlitligi). Himoya bitta kutubxonaga
     // bog'lanib qolmaydi — bir hook bilan hammasini o'chirib bo'lmaydi.
     _nativeCheck(block);
+
+    // ── Uchinchi qatlam: Dart/AOT (integrity.dart) ──
+    // Kotlin smali bilan o'chirilsa ham bu libapp.so ichida qoladi. Darhol
+    // va keyin tasodifiy kechikish bilan yana — kechroq ulangan hook ham
+    // ushlanadi, vaqti esa oldindan bilinmaydi.
+    _dartCheck();
+    Future.delayed(Duration(seconds: 20 + Random().nextInt(40)), _dartCheck);
 
     await Talsec.instance.attachListener(ThreatCallback(
       // ── bloklanadi ──
@@ -108,6 +120,14 @@ class Security {
       isProd: true,
       killOnBypass: true,
     ));
+  }
+
+  static Future<void> _dartCheck() async {
+    try {
+      for (final f in await Integrity.check()) {
+        await block(f);
+      }
+    } catch (_) {}
   }
 
   static const _devsec = MethodChannel('uz.finn.app/devsec');

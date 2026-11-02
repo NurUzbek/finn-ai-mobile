@@ -26,6 +26,8 @@ class Api {
   static Future<String?> get token async => _token ??= await _storage.read(key: 'token');
   static Future<void> setToken(String t) async {
     _token = t;
+    // Server attestatsiyani sessiya (token) ga bog'laydi — yangi token o'zi o'tsin.
+    Attestation.reset();
     await _storage.write(key: 'token', value: t);
   }
 
@@ -41,8 +43,10 @@ class Api {
   static Future<String> attestNonce() async =>
       (await _req('GET', '/attest/nonce', attest: false))['nonce'] as String? ?? '';
 
-  static Future<bool> attestVerify(String platform, Map<String, dynamic> payload) async =>
-      (await _req('POST', '/attest/verify', body: {'platform': platform, ...payload}, attest: false))['attested'] == true;
+  /// {'attested': bool, 'code'?: 'tampered'|'device'} — code faqat Google
+  /// tasdiqlagan hukmda keladi (server sessiyani allaqachon o'chirgan).
+  static Future<Map<String, dynamic>> attestVerify(String platform, Map<String, dynamic> payload) =>
+      _req('POST', '/attest/verify', body: {'platform': platform, ...payload}, attest: false);
 
   static Future<String?> attestKeyId() => _storage.read(key: 'attest_key');
   static Future<void> saveAttestKeyId(String? id) =>
