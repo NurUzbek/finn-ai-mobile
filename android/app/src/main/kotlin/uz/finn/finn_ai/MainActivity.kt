@@ -10,5 +10,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         // Server-side attestatsiya (Play Integrity) — lib/services/attestation.dart
         flutterEngine.plugins.add(PlayIntegrityPlugin())
+        // freeRASP'dan mustaqil klient himoyasi — lib/services/security.dart
+        flutterEngine.plugins.add(DeviceSecurityPlugin())
     }
 }

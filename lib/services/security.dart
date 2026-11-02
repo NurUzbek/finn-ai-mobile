@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:freerasp/freerasp.dart';
 
 import 'api.dart';
@@ -14,9 +17,15 @@ import 'lock.dart';
 ///   2.2.5  Ilova yaxlitligi           → onAppIntegrity (qayta yig'ish/imzolash)
 ///   2.2.6  Emulyator tekshiruvi       → onSimulator
 ///
-/// Tekshiruvlar Dart'da emas, native (C/C++/Kotlin/Swift) darajada bajariladi —
-/// ekspertiza aynan shuni tavsiya qilgan. `killOnBypass` yoqilgan: kimdir
-/// callback'larni hook bilan o'chirib qo'ysa, ilova o'zini to'xtatadi.
+/// Tekshiruvlar Dart'da emas, native (C/C++/Kotlin/Swift) darajada bajariladi.
+/// `killOnBypass` yoqilgan: kimdir callback'larni hook bilan o'chirib qo'ysa,
+/// ilova o'zini to'xtatadi.
+///
+/// IKKINCHI, MUSTAQIL QATLAM (Android, DeviceSecurityPlugin.kt): himoya bitta
+/// kutubxonaga (Talsec) bog'lanib qolmasligi uchun native Kotlin o'z-o'zi
+/// root/debugger/hook/imzo yaxlitligini qaytadan tekshiradi. Bitta Frida hook
+/// faqat freeRASP'ni nishonga olsa, bu qatlam baribir ishlaydi (va aksincha).
+/// Uchinchi — eng kuchli — qatlam: server-side attestatsiya (attestation.dart).
 ///
 /// Xavf aniqlanganda: token va PIN darhol o'chiriladi (server sessiyasi ham
 /// yaroqsiz bo'ladi), ilova esa bloklovchi ekranni ko'rsatadi.
@@ -41,6 +50,12 @@ class Security {
         await Lock.clear();
       } catch (_) {}
     }
+
+    // ── Ikkinchi, MUSTAQIL qatlam (Android) ──
+    // freeRASP'ga qo'shimcha: native Kotlin o'z tekshiruvini bajaradi
+    // (root, debugger, hook, imzo yaxlitligi). Himoya bitta kutubxonaga
+    // bog'lanib qolmaydi — bir hook bilan hammasini o'chirib bo'lmaydi.
+    _nativeCheck(block);
 
     await Talsec.instance.attachListener(ThreatCallback(
       // ── bloklanadi ──
@@ -80,7 +95,10 @@ class Security {
         // imzolaydi — o'shanda Play Console → App integrity'dagi SHA-256 ni
         // ham shu ro'yxatga QO'SHISH SHART, aks holda yaxlitlik tekshiruvi
         // barcha Play foydalanuvchilarini bloklaydi.
-        signingCertHashes: const ['j7mLhbvRfbzqX6c2akR9l1g3l6lPT8sbCsdPT9TY4xk='],
+        signingCertHashes: const [
+          'j7mLhbvRfbzqX6c2akR9l1g3l6lPT8sbCsdPT9TY4xk=', // finn.uz upload kaliti (sideload)
+          'bZCeu8rBIOqfWyQyQnHCPB/GMtEU+PZuUPaJ23+Qwdo=', // Play App Signing kaliti
+        ],
       ),
       iosConfig: IOSConfig(
         bundleIds: const ['uz.finn.app'],
@@ -90,5 +108,22 @@ class Security {
       isProd: true,
       killOnBypass: true,
     ));
+  }
+
+  static const _devsec = MethodChannel('uz.finn.app/devsec');
+
+  /// freeRASP'dan mustaqil native tekshiruv (DeviceSecurityPlugin.kt).
+  /// Android-only; natija — aniqlangan xavflar ro'yxati. Topilsa bloklanadi.
+  static Future<void> _nativeCheck(Future<void> Function(String) block) async {
+    if (!Platform.isAndroid) return;
+    try {
+      final flags = await _devsec.invokeListMethod<String>('check') ?? const [];
+      // integrity/root/debug/hook — freeRASP bilan bir xil turlar, bloklaydi
+      for (final f in flags) {
+        await block(f);
+      }
+    } catch (_) {
+      // native qatlam javob bermasa, freeRASP qatlami ishlashda davom etadi
+    }
   }
 }

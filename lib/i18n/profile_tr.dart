@@ -85,5 +85,5 @@ const Map<String, Map<String, String>> tr = {
   'profile.devicesSoon': {'uz': "Boshqa qurilmalar ro'yxati tez orada", 'uzc': 'Бошқа қурилмалар рўйхати тез орада', 'ru': 'Список других устройств скоро', 'en': 'Other devices list coming soon'},
 
   // ── Versiya matni (footer) ──
-  'profile.version': {'uz': 'FINN AI v1.3.1 · ONEDESK GROUP MChJ', 'uzc': 'FINN AI v1.3.1 · ONEDESK GROUP МЧЖ', 'ru': 'FINN AI v1.3.1 · ONEDESK GROUP ООО', 'en': 'FINN AI v1.3.1 · ONEDESK GROUP LLC'},
+  'profile.version': {'uz': 'FINN AI v1.3.2 · ONEDESK GROUP MChJ', 'uzc': 'FINN AI v1.3.2 · ONEDESK GROUP МЧЖ', 'ru': 'FINN AI v1.3.2 · ONEDESK GROUP ООО', 'en': 'FINN AI v1.3.2 · ONEDESK GROUP LLC'},
 };
