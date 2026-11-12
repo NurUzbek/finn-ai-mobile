@@ -50,6 +50,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
 
         return FinnScreen(
           govSources: true,
+      demoData: const ['soliq'],
           title: tr('org.title'),
           subtitle: subtitle,
           showNav: false,

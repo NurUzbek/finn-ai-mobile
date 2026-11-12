@@ -13,10 +13,10 @@ const Map<String, Map<String, String>> tr = {
   'src.title': {'uz': "Ma'lumot manbalari", 'uzc': 'Маълумот манбалари', 'ru': 'Источники информации', 'en': 'Information sources'},
   'src.rowSub': {'uz': "Rasmiy saytlar va ogohlantirish", 'uzc': 'Расмий сайтлар ва огоҳлантириш', 'ru': 'Официальные сайты и дисклеймер', 'en': 'Official websites and disclaimer'},
   'src.sheetIntro': {
-    'uz': "Ilova davlat organlari ma'lumotlarini ochiq rasmiy manbalardan va sizning roziligingiz bilan vakolatli interfeyslar orqali oladi. Yuridik ahamiyatga ega ma'lumot — quyidagi rasmiy saytlarda.",
-    'uzc': "Илова давлат органлари маълумотларини очиқ расмий манбалардан ва сизнинг розилигингиз билан ваколатли интерфейслар орқали олади. Юридик аҳамиятга эга маълумот — қуйидаги расмий сайтларда.",
-    'ru': 'Приложение получает информацию госорганов из открытых официальных источников и, с вашего согласия, через авторизованные интерфейсы. Юридически значимая информация — на официальных сайтах ниже.',
-    'en': 'The app receives government information from open official sources and, with your consent, through authorized interfaces. Legally binding information is on the official websites below.',
+    'uz': "Soliq qo'mitasi va MIB bilan integratsiya ulanish bosqichida. Hozircha muddatlar va hisob-kitoblar Soliq kodeksi (lex.uz) asosida beriladi. Rasmiy ma'lumotni my.soliq.uz va mib.uz da tekshiring. Yuridik ahamiyatga ega ma'lumot — quyidagi rasmiy saytlarda.",
+    'uzc': "Солиқ қўмитаси ва МИБ билан интеграция уланиш босқичида. Ҳозирча муддатлар ва ҳисоб-китоблар Солиқ кодекси (lex.uz) асосида берилади. Расмий маълумотни my.soliq.uz ва mib.uz да текширинг. Юридик аҳамиятга эга маълумот — қуйидаги расмий сайтларда.",
+    'ru': 'Интеграция с налоговым комитетом и Бюро принудительного исполнения находится на этапе подключения. Пока сроки и расчёты приводятся на основе Налогового кодекса (lex.uz). Официальные сведения проверяйте на my.soliq.uz и mib.uz. Юридически значимая информация — на официальных сайтах ниже.',
+    'en': 'Integration with the Tax Committee and the Enforcement Bureau is being connected. For now, deadlines and calculations are based on the Tax Code (lex.uz). Verify official information at my.soliq.uz and mib.uz. Legally binding information is on the official websites below.',
   },
   'src.more': {'uz': 'Manbalar', 'uzc': 'Манбалар', 'ru': 'Источники', 'en': 'Sources'},
   'src.footer': {'uz': 'Manba: rasmiy davlat saytlari · FINN davlat organi emas', 'uzc': 'Манба: расмий давлат сайтлари · FINN давлат органи эмас', 'ru': 'Источник: официальные госсайты · FINN не является госорганом', 'en': 'Source: official government websites · FINN is not a government app'},
@@ -43,5 +43,25 @@ const Map<String, Map<String, String>> tr = {
     'uzc': "СТИР бўйича маълумот маълумот учун берилади. FINN давлат органи эмас — расмий маълумотни soliq.uz да текширинг.",
     'ru': 'Данные по ИНН носят справочный характер. FINN не является госорганом — официальные сведения проверяйте на soliq.uz.',
     'en': 'Data by TIN is for reference only. FINN is not a government app — verify official data at soliq.uz.',
+  },
+  // Demo integratsiya belgisi
+  'demo.title': {'uz': "Namunaviy ma'lumot", 'uzc': 'Намунавий маълумот', 'ru': 'Демонстрационные данные', 'en': 'Sample data'},
+  'demo.soliq': {
+    'uz': "Soliq qo'mitasi bilan integratsiya ulanmoqda. Bu yerdagi soliq ma'lumotlari namunaviy — rasmiy ma'lumotni my.soliq.uz da tekshiring.",
+    'uzc': "Солиқ қўмитаси билан интеграция уланмоқда. Бу ердаги солиқ маълумотлари намунавий — расмий маълумотни my.soliq.uz да текширинг.",
+    'ru': 'Интеграция с налоговым комитетом подключается. Налоговые данные здесь демонстрационные — официальные сведения проверяйте на my.soliq.uz.',
+    'en': 'Integration with the Tax Committee is being connected. Tax data here is sample data — verify official information at my.soliq.uz.',
+  },
+  'demo.mib': {
+    'uz': "MIB bilan integratsiya ulanmoqda. Bu yerdagi ijro ma'lumotlari namunaviy — rasmiy ma'lumotni mib.uz da tekshiring.",
+    'uzc': "МИБ билан интеграция уланмоқда. Бу ердаги ижро маълумотлари намунавий — расмий маълумотни mib.uz да текширинг.",
+    'ru': 'Интеграция с Бюро принудительного исполнения подключается. Данные об исполнении здесь демонстрационные — официальные сведения проверяйте на mib.uz.',
+    'en': 'Integration with the Enforcement Bureau is being connected. Enforcement data here is sample data — verify official information at mib.uz.',
+  },
+  'demo.both': {
+    'uz': "Soliq qo'mitasi va MIB bilan integratsiya ulanmoqda. Bu yerdagi soliq va ijro ma'lumotlari namunaviy — rasmiy ma'lumotni my.soliq.uz va mib.uz da tekshiring.",
+    'uzc': "Солиқ қўмитаси ва МИБ билан интеграция уланмоқда. Бу ердаги солиқ ва ижро маълумотлари намунавий — расмий маълумотни my.soliq.uz ва mib.uz да текширинг.",
+    'ru': 'Интеграция с налоговым комитетом и Бюро принудительного исполнения подключается. Налоговые данные и данные об исполнении здесь демонстрационные — официальные сведения проверяйте на my.soliq.uz и mib.uz.',
+    'en': 'Integration with the Tax Committee and the Enforcement Bureau is being connected. Tax and enforcement data here is sample data — verify official information at my.soliq.uz and mib.uz.',
   },
 };

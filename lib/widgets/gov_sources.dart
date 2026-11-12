@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/i18n.dart';
+import '../services/perm.dart';
 import '../theme/finn_tokens.dart';
 import 'finn_screen.dart';
 
@@ -173,6 +174,49 @@ class GovSourcesFooter extends StatelessWidget {
           Text(tr('src.more'), style: FinnText.rowSub(t.blue)),
         ]),
       ),
+    );
+  }
+}
+
+/// "Namunaviy ma'lumot, integratsiya ulanmoqda" — Soliq qo'mitasi yoki MIB
+/// integratsiyasi hali demo bo'lsa, shu ma'lumot chiqadigan ekran tepasida.
+/// Server demo'ni o'chirsa (`/me` → demo_sources), belgi o'zi yo'qoladi.
+class DemoDataBanner extends StatelessWidget {
+  const DemoDataBanner({super.key, required this.kinds});
+
+  /// Ekran ko'rsatadigan manbalar: 'soliq', 'mib'.
+  final List<String> kinds;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: PermState.demo,
+      builder: (_, demo, __) {
+        final active = kinds.where(demo.contains).toList();
+        if (active.isEmpty) return const SizedBox.shrink();
+        final key = active.length > 1 ? 'demo.both' : 'demo.${active.first}';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: t.tAmb,
+              borderRadius: BorderRadius.circular(FinnTokens.rMd),
+              border: Border.all(color: t.onAmb.withValues(alpha: .35)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.science_outlined, size: 18, color: t.onAmb),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('demo.title'), style: FinnText.rowTitle(t.onAmb)),
+                const SizedBox(height: 2),
+                Text(tr(key), style: FinnText.rowSub(t.onAmb)),
+              ])),
+            ]),
+          ),
+        );
+      },
     );
   }
 }

@@ -38,6 +38,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return FinnScreen(
       govSources: true,
+      demoData: const ['soliq'],
       title: tr('nav.home'),
       subtitle: tr('dash.subtitle'),
       showNav: false,

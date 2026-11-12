@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'api.dart';
 
 /// RBAC — foydalanuvchi roli va ruxsatlari (TZ 3.13).
@@ -14,6 +16,11 @@ class PermState {
   String role = 'super-admin';
   Set<String> perms = {};
   bool loaded = false;
+
+  /// Hali demo rejimidagi davlat integratsiyalari ('soliq', 'mib').
+  /// Server javobigacha ikkalasi ham demo deb olinadi — xato tomonga emas,
+  /// ochiqlik tomonga: belgi keraksiz chiqsa ham, yashirin qolmasin.
+  static final ValueNotifier<Set<String>> demo = ValueNotifier({'soliq', 'mib'});
 
   bool get isOwner => role == 'super-admin';
   bool get isObserver => role == 'observer';
@@ -38,6 +45,10 @@ class PermState {
             .map((e) => e.toString())
             .toSet();
         loaded = true;
+        final ds = d['demo_sources'];
+        if (ds is Map) {
+          demo.value = {for (final e in ds.entries) if (e.value == true) e.key.toString()};
+        }
       }
     } catch (_) {
       // Aloqa yo'q — egasi sifatida (to'liq) qoldiramiz, xavfsiz tomonga emas

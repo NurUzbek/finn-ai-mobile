@@ -70,6 +70,7 @@ class _RiskScreenState extends State<RiskScreen> {
     final t = context.tokens;
     return FinnScreen(
       govSources: true,
+      demoData: const ['soliq', 'mib'],
       title: tr('risk.title'),
       subtitle: tr('risk.subtitle'),
       showNav: false,

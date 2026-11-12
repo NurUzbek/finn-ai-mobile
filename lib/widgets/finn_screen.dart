@@ -35,6 +35,7 @@ class FinnScreen extends StatelessWidget {
     this.navIndex = 0,
     this.onNavChanged,
     this.govSources = false,
+    this.demoData = const [],
   });
 
   final String title;
@@ -55,6 +56,10 @@ class FinnScreen extends StatelessWidget {
   /// Davlat ma'lumoti ko'rsatiladigan ekran — oxirida rasmiy manbalar va
   /// "davlat organi emas" yozuvi chiqadi (Google Play Misleading Claims).
   final bool govSources;
+
+  /// Ekran ko'rsatadigan davlat ma'lumoti manbalari ('soliq', 'mib') —
+  /// integratsiya demo bo'lsa tepada "Namunaviy ma'lumot" belgisi chiqadi.
+  final List<String> demoData;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +95,7 @@ class FinnScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (demoData.isNotEmpty) DemoDataBanner(kinds: demoData),
                         ...children,
                         if (govSources) const GovSourcesFooter(),
                       ],

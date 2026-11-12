@@ -95,6 +95,7 @@ class _CounterpartyScreenState extends State<CounterpartyScreen> {
     final t = context.tokens;
     return FinnScreen(
       govSources: true,
+      demoData: const ['soliq', 'mib'],
       title: tr('cp.title'),
       subtitle: _sub.isEmpty ? tr('cp.subtitle') : _sub,
       showNav: false,

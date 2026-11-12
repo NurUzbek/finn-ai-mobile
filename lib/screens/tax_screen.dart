@@ -6,7 +6,7 @@ import '../services/api.dart';
 import '../services/i18n.dart';
 import '../widgets/common.dart';
 
-/// "Soliq qarzi" moduli — soliq qarzdorligi, kechikkan kunlar, real vaqtda penya.
+/// "Soliq qarzi" moduli — soliq qarzdorligi, kechikkan kunlar, Soliq kodeksi bo'yicha penya.
 /// FINN dizayn tizimi bo'yicha (FinnScreen + tokens + FinnText).
 class TaxScreen extends StatefulWidget {
   const TaxScreen({super.key, this.navIndex = 3, this.onNavChanged});
@@ -26,6 +26,7 @@ class _TaxScreenState extends State<TaxScreen> {
     final t = context.tokens;
     return FinnScreen(
       govSources: true,
+      demoData: const ['soliq'],
       title: tr('tax.header'),
       subtitle: tr('tax.subtitle'),
       showNav: false,

@@ -3,7 +3,7 @@
 const Map<String, Map<String, String>> tr = {
   // ── Header ──
   'tax.header': {'uz': 'Soliq qarzi', 'uzc': 'Солиқ қарзи', 'ru': 'Налоговая задолженность', 'en': 'Tax debt'},
-  'tax.subtitle': {'uz': 'Penya real vaqtda hisoblanadi', 'uzc': 'Пеня реал вақтда ҳисобланади', 'ru': 'Пеня рассчитывается в реальном времени', 'en': 'Penalty is calculated in real time'},
+  'tax.subtitle': {'uz': "Penya Soliq kodeksi bo'yicha hisoblanadi", 'uzc': 'Пеня Солиқ кодекси бўйича ҳисобланади', 'ru': 'Пеня рассчитывается по Налоговому кодексу', 'en': 'Penalty is calculated under the Tax Code'},
 
   // ── Umumiy sarhisob ──
   'tax.totalDebt': {'uz': 'Umumiy qarz', 'uzc': 'Умумий қарз', 'ru': 'Общий долг', 'en': 'Total debt'},
