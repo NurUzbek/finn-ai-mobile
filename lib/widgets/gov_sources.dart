@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/i18n.dart';
 import '../theme/finn_tokens.dart';
+import 'finn_screen.dart';
 
 /// Davlat ma'lumotlari manbalari + "davlat organi emas" ogohlantirishi.
 ///
@@ -16,7 +17,7 @@ class GovSources {
   /// (tarjima kaliti, manzil) — do'kon tavsifidagi ro'yxat bilan bir xil.
   static const list = [
     ('src.soliq', 'https://soliq.uz'),
-    ('src.mygov', 'https://my.gov.uz'),
+    ('src.mysoliq', 'https://my.soliq.uz'),
     ('src.oneid', 'https://id.egov.uz'),
     ('src.mib', 'https://mib.uz'),
     ('src.cbu', 'https://cbu.uz'),
@@ -36,7 +37,7 @@ class GovSources {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(FinnTokens.rLg))),
       builder: (c) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: Container(width: 36, height: 4,
@@ -44,30 +45,85 @@ class GovSources {
             const SizedBox(height: 16),
             Text(tr('src.title'), style: FinnText.cardTitle(t.ink)),
             const SizedBox(height: 12),
-            const GovDisclaimer(),
-            const SizedBox(height: 12),
-            Text(tr('src.sheetIntro'), style: FinnText.rowSub(t.ink3)),
-            const SizedBox(height: 8),
-            for (final (key, url) in list)
-              InkWell(
-                onTap: () => open(url),
-                borderRadius: BorderRadius.circular(FinnTokens.rSm),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Row(children: [
-                    Icon(Icons.account_balance_outlined, size: 18, color: t.blue),
-                    const SizedBox(width: 12),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr(key), style: FinnText.rowTitle(t.ink)),
-                      Text(url.replaceFirst('https://', ''), style: FinnText.rowSub(t.blue)),
-                    ])),
-                    Icon(Icons.open_in_new_rounded, size: 16, color: t.ink4),
-                  ]),
-                ),
-              ),
+            const GovSourcesBody(),
           ]),
         ),
       ),
+    );
+  }
+
+  /// To'liq ekran — Profil → "Ilova haqida va manbalar".
+  static Future<void> push(BuildContext context) => Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (_) => const GovSourcesScreen()));
+}
+
+/// Ogohlantirish + izoh + bosiladigan rasmiy manbalar + sayt sahifasi.
+/// Oyna va to'liq ekran bir xil mazmunni ko'rsatadi.
+class GovSourcesBody extends StatelessWidget {
+  const GovSourcesBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    Widget link(IconData icon, String title, String url) => InkWell(
+          onTap: () => GovSources.open(url),
+          borderRadius: BorderRadius.circular(FinnTokens.rSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(children: [
+              Icon(icon, size: 18, color: t.blue),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: FinnText.rowTitle(t.ink)),
+                Text(url.replaceFirst('https://', ''), style: FinnText.rowSub(t.blue)),
+              ])),
+              Icon(Icons.open_in_new_rounded, size: 16, color: t.ink4),
+            ]),
+          ),
+        );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const GovDisclaimer(),
+      const SizedBox(height: 12),
+      Text(tr('src.sheetIntro'), style: FinnText.rowSub(t.ink3)),
+      const SizedBox(height: 8),
+      for (final (key, url) in GovSources.list) link(Icons.account_balance_outlined, tr(key), url),
+      const SizedBox(height: 8),
+      Text(tr('src.einvoice'), style: FinnText.rowSub(t.ink3)),
+      const SizedBox(height: 4),
+      link(Icons.language_rounded, tr('src.webPage'), 'https://finn.uz/sources'),
+    ]);
+  }
+}
+
+/// "Ilova haqida va manbalar" — to'liq ekran.
+class GovSourcesScreen extends StatelessWidget {
+  const GovSourcesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return FinnScreen(
+      title: tr('src.aboutTitle'),
+      showNav: false,
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back_rounded, color: t.ink),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(FinnTokens.rLg)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('src.developer'), style: FinnText.rowTitle(t.ink)),
+            const SizedBox(height: 4),
+            Text(tr('profile.version'), style: FinnText.rowSub(t.ink3)),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        const GovSourcesBody(),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }

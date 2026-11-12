@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/finn_tokens.dart';
 import '../services/api.dart';
 import '../services/i18n.dart';
+import 'gov_sources.dart';
 
 /// "+" tugmalari uchun qo'shish formalari (modal bottom sheet).
 /// Har biri Api'ga POST qiladi; muvaffaqiyatda `true` qaytaradi (ro'yxat yangilanadi).
@@ -278,6 +279,10 @@ class _OrganizationFormState extends State<_OrganizationForm> {
           _field(t, tr('add.stir'), _stir,
               kbd: TextInputType.number,
               fmt: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)]),
+          const SizedBox(height: 12),
+          // Google Play: STIR kiritiladigan joyda ham "davlat organi emas" + manbalar
+          Text(tr('src.innNote'), style: FinnText.rowSub(t.ink3)),
+          const GovSourcesFooter(),
         ]),
       ),
       _saveBtn(t, _busy, _save),

@@ -23,9 +23,25 @@ const Map<String, Map<String, String>> tr = {
 
   // Manbalar ro'yxati
   'src.soliq': {'uz': "Davlat soliq qo'mitasi", 'uzc': 'Давлат солиқ қўмитаси', 'ru': 'Государственный налоговый комитет', 'en': 'State Tax Committee'},
-  'src.mygov': {'uz': 'Yagona interaktiv davlat xizmatlari portali', 'uzc': 'Ягона интерактив давлат хизматлари портали', 'ru': 'Единый портал интерактивных госуслуг', 'en': 'Unified Portal of Interactive Public Services'},
+  'src.mysoliq': {'uz': "Soliq to'lovchining shaxsiy kabineti", 'uzc': 'Солиқ тўловчининг шахсий кабинети', 'ru': 'Персональный кабинет налогоплательщика', 'en': 'Taxpayer personal account'},
   'src.oneid': {'uz': 'OneID identifikatsiya tizimi', 'uzc': 'OneID идентификация тизими', 'ru': 'Система идентификации OneID', 'en': 'OneID identification system'},
   'src.mib': {'uz': 'Majburiy ijro byurosi', 'uzc': 'Мажбурий ижро бюроси', 'ru': 'Бюро принудительного исполнения', 'en': 'Bureau of Compulsory Enforcement'},
   'src.cbu': {'uz': 'Markaziy bank (valyuta kurslari)', 'uzc': 'Марказий банк (валюта курслари)', 'ru': 'Центральный банк (курсы валют)', 'en': 'Central Bank (exchange rates)'},
   'src.lex': {'uz': "Qonunchilik ma'lumotlari milliy bazasi", 'uzc': 'Қонунчилик маълумотлари миллий базаси', 'ru': 'Национальная база законодательства', 'en': 'National Database of Legislation'},
+  // "Ilova haqida va manbalar" ekrani
+  'src.aboutTitle': {'uz': 'Ilova haqida va manbalar', 'uzc': 'Илова ҳақида ва манбалар', 'ru': 'О приложении и источники', 'en': 'About the app and sources'},
+  'src.developer': {'uz': "Ishlab chiquvchi: «ONEDESK GROUP» MChJ (xususiy kompaniya)", 'uzc': 'Ишлаб чиқувчи: «ONEDESK GROUP» МЧЖ (хусусий компания)', 'ru': 'Разработчик: «ONEDESK GROUP» MChJ (частная компания)', 'en': 'Developer: ONEDESK GROUP LLC (private company)'},
+  'src.einvoice': {
+    'uz': "Elektron hisob-fakturalar sizning akkauntingiz orqali litsenziyalangan xususiy EDO operatori Didox (didox.uz) dan olinadi. Didox ham davlat organi emas.",
+    'uzc': "Электрон ҳисоб-фактуралар сизнинг аккаунтингиз орқали лицензияланган хусусий ЭДО оператори Didox (didox.uz) дан олинади. Didox ҳам давлат органи эмас.",
+    'ru': 'Электронные счета-фактуры загружаются через ваш аккаунт у лицензированного частного оператора ЭДО Didox (didox.uz). Didox также не является госорганом.',
+    'en': 'E-invoices are loaded through your own account with Didox (didox.uz), a licensed private e-document operator. Didox is not a government entity either.',
+  },
+  'src.webPage': {'uz': "Batafsil sayt sahifasida", 'uzc': 'Батафсил сайт саҳифасида', 'ru': 'Подробнее на сайте', 'en': 'More on our website'},
+  'src.innNote': {
+    'uz': "STIR bo'yicha ma'lumot ma'lumot uchun beriladi. FINN davlat organi emas — rasmiy ma'lumotni soliq.uz da tekshiring.",
+    'uzc': "СТИР бўйича маълумот маълумот учун берилади. FINN давлат органи эмас — расмий маълумотни soliq.uz да текширинг.",
+    'ru': 'Данные по ИНН носят справочный характер. FINN не является госорганом — официальные сведения проверяйте на soliq.uz.',
+    'en': 'Data by TIN is for reference only. FINN is not a government app — verify official data at soliq.uz.',
+  },
 };
